@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - JWT_SECRET_KEY=change-me-in-production
+    volumes:
+      - ./backend/.streamlit:/app/.streamlit:ro
+      - backend-data:/app/data
+    depends_on:
+      - redis
+
+  worker:
+    build: ./backend
+    command: celery -A tasks.celery worker --loglevel=info
+    volumes:
+      - ./backend/.streamlit:/app/.streamlit:ro
+      - backend-data:/app/data
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  backend-data:
