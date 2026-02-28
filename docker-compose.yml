@@ -17,6 +17,7 @@ services:
     environment:
       - FLASK_ENV=production
       - REDIS_URL=redis://redis:6379/0
+      - DATA_DIR=/app/data
     volumes:
       - ./backend/.streamlit:/app/.streamlit:ro
       - backend-data:/app/data

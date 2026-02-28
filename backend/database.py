@@ -4,11 +4,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
 # --- Database Setup ---
-# Get the absolute path to the directory where this file is located
-_current_dir = os.path.dirname(os.path.abspath(__file__))
-# Share the same database as the Streamlit match-genie version
-_db_path = os.path.join(_current_dir, "..", "..", "match-genie", "users.db")
-# Create the SQLAlchemy database URL
+# Use DATA_DIR env var in production (Docker volume), fallback to local dev path
+_data_dir = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "match-genie"))
+os.makedirs(_data_dir, exist_ok=True)
+_db_path = os.path.join(_data_dir, "users.db")
 DATABASE_URL = f"sqlite:///{_db_path}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
