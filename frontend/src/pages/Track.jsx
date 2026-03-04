@@ -11,6 +11,7 @@ const INITIAL_STATS = () => ({
   second_serves_in: 0, second_serves_total: 0,
   points_won: 0, first_serve_points_won: 0,
   return_points_won: 0, return_points_total: 0,
+  return_attempts: 0, returns_in: 0,
   break_points_converted: 0, break_points_opportunities: 0,
   break_points_saved: 0, break_points_faced: 0,
 })
@@ -44,12 +45,14 @@ export default function Track() {
   const [currentSet, setCurrentSet] = useState(0)
   const [firstServe, setFirstServe] = useState(true)
   const [currentPointServeType, setCurrentPointServeType] = useState(null)
+  const [pendingPointWinner, setPendingPointWinner] = useState(null)
   const [stats, setStats] = useState({ player1: INITIAL_STATS(), player2: INITIAL_STATS() })
   const [history, setHistory] = useState([])
   const [startTime] = useState(null)
   const [matchDescription, setMatchDescription] = useState('')
   const [mentalGame, setMentalGame] = useState('')
   const [saveMsg, setSaveMsg] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [previousOpponents, setPreviousOpponents] = useState([])
   const [showP2Suggestions, setShowP2Suggestions] = useState(false)
   const [setupError, setSetupError] = useState('')
@@ -82,6 +85,7 @@ export default function Track() {
     setCurrentSet(prev.currentSet); setServer(prev.server)
     setFirstServe(prev.firstServe); setCurrentPointServeType(prev.currentPointServeType)
     setPhase(prev.phase); setStats(prev.stats)
+    setPendingPointWinner(null)
   }
 
   const switchServer = () => setServer((s) => s === 1 ? 2 : 1)
@@ -204,7 +208,7 @@ export default function Track() {
         else next[sKey].second_serves_in++
       } else if (result === 'fault') {
         // handled below
-      } else if (result === 'in_court') {
+      } else if (result === 'in_court' || result === 'return_error') {
         if (firstServe) next[sKey].first_serves_in++
         else next[sKey].second_serves_in++
       }
@@ -228,9 +232,27 @@ export default function Track() {
         awardPoint(opp)
         setFirstServe(true)
       }
-    } else if (result === 'in_court') {
+    } else if (result === 'return_error') {
+      const returnerKey = server === 1 ? 'player2' : 'player1'
+      setStats((prev) => {
+        const next = JSON.parse(JSON.stringify(prev))
+        next[returnerKey].unforced_errors++
+        next[returnerKey].return_attempts++
+        return next
+      })
       setCurrentPointServeType(firstServe ? 'first' : 'second')
-      setPhase('point')
+      awardPoint(server)
+    } else if (result === 'in_court') {
+      const returnerKey = server === 1 ? 'player2' : 'player1'
+      setStats((prev) => {
+        const next = JSON.parse(JSON.stringify(prev))
+        next[returnerKey].return_attempts++
+        next[returnerKey].returns_in++
+        return next
+      })
+      setCurrentPointServeType(firstServe ? 'first' : 'second')
+      setPendingPointWinner(null)
+      setPhase('select_point_winner')
     }
   }
 
@@ -269,6 +291,15 @@ export default function Track() {
   }
 
   const handleSave = async () => {
+    if (!matchDescription.trim()) {
+      setSaveError('Match Description is required.')
+      return
+    }
+    if (!mentalGame.trim()) {
+      setSaveError('Mental Game is required.')
+      return
+    }
+    setSaveError('')
     const scoreParts = p1Games.map((g, i) => `${g}-${p2Games[i]}`)
     const matchScore = scoreParts.join(', ')
     const result = p1Sets > p2Sets ? 'W' : 'L'
@@ -301,7 +332,8 @@ export default function Track() {
     setP1Sets(0); setP2Sets(0); setCurrentSet(0)
     setFirstServe(true); setCurrentPointServeType(null)
     setStats({ player1: INITIAL_STATS(), player2: INITIAL_STATS() })
-    setHistory([]); setMatchDescription(''); setMentalGame(''); setSaveMsg('')
+    setHistory([]); setMatchDescription(''); setMentalGame(''); setSaveMsg(''); setSaveError('')
+    setPendingPointWinner(null)
   }
 
   // Score display component
@@ -431,14 +463,44 @@ export default function Track() {
         <div className="form-grid track-buttons">
           <button className="btn btn-primary" onClick={() => recordServe('ace')}>Ace</button>
           <button className="btn btn-outline" onClick={() => recordServe('fault')}>Fault</button>
-          <button className="btn btn-primary" onClick={() => {
+          <button className="btn btn-error" onClick={() => {
             saveHistory()
             const returner = server === 1 ? 2 : 1
             const rKey = returner === 1 ? 'player1' : 'player2'
-            setStats((prev) => { const n = JSON.parse(JSON.stringify(prev)); n[rKey].winners++; return n })
+            setStats((prev) => {
+              const n = JSON.parse(JSON.stringify(prev))
+              n[rKey].winners++
+              n[rKey].return_attempts++
+              n[rKey].returns_in++
+              return n
+            })
             awardPoint(returner)
           }}>Return Winner</button>
-          <button className="btn btn-primary" onClick={() => recordServe('in_court')}>Ball In Court</button>
+          <button className="btn btn-primary" onClick={() => recordServe('return_error')}>Return Error</button>
+        </div>
+        <button className="btn btn-primary btn-full" style={{ marginTop: '0.75rem' }} onClick={() => recordServe('in_court')}>Ball in Court</button>
+        <hr />
+        <button className="btn btn-outline btn-full" onClick={() => setPhase('match_complete')}>End Match</button>
+      </div>
+    )
+  }
+
+  // SELECT POINT WINNER
+  if (phase === 'select_point_winner') {
+    return (
+      <div className="track-page">
+        <h1>Live Tracker</h1>
+        <ScoreCard />
+        <PointDisplay />
+        <div className="track-phase-bar">
+          <span className="phase-tab">SERVICE</span>
+          <span className="phase-tab active">POINT</span>
+          {history.length > 0 && <button className="btn btn-outline btn-sm" onClick={undo}>Undo</button>}
+        </div>
+        <h3>Who won the point?</h3>
+        <div className="form-row">
+          <button className="btn btn-primary btn-full" onClick={() => { setPendingPointWinner(1); setPhase('point') }}>{p1Name}</button>
+          <button className="btn btn-primary btn-full" onClick={() => { setPendingPointWinner(2); setPhase('point') }}>{p2Name}</button>
         </div>
         <hr />
         <button className="btn btn-outline btn-full" onClick={() => setPhase('match_complete')}>End Match</button>
@@ -448,27 +510,36 @@ export default function Track() {
 
   // POINT
   if (phase === 'point') {
+    const isWinner = (playerNum) => pendingPointWinner === playerNum
+
     const PlayerButtons = ({ playerNum, name }) => (
       <div className="track-player-buttons">
         <h4>{name}</h4>
-        <p style={{ marginBottom: '0.5rem', color: 'white' }}>Clean Winner</p>
-        <div className="track-btn-row" style={{ marginBottom: '1.25rem' }}>
-          {['forehand', 'backhand', 'net'].map((s) => (
-            <button key={s} className="btn btn-primary btn-sm" onClick={() => recordPointResult(playerNum, 'winner', s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
-          ))}
-        </div>
-        <p style={{ marginBottom: '0.5rem', color: 'white' }}>Forced Error</p>
-        <div className="track-btn-row" style={{ marginBottom: '1.25rem' }}>
-          {['forehand', 'backhand', 'net'].map((s) => (
-            <button key={s} className="btn btn-error btn-sm" onClick={() => recordPointResult(playerNum, 'forced_error', s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
-          ))}
-        </div>
-        <p style={{ marginBottom: '0.5rem', color: 'white' }}>Unforced Error</p>
-        <div className="track-btn-row">
-          {['forehand', 'backhand', 'net'].map((s) => (
-            <button key={s} className="btn btn-error btn-sm" onClick={() => recordPointResult(playerNum, 'unforced_error', s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
-          ))}
-        </div>
+        {isWinner(playerNum) ? (
+          <>
+            <p style={{ marginBottom: '0.5rem', color: 'white' }}>Clean Winner</p>
+            <div className="track-btn-row">
+              {['forehand', 'backhand', 'net'].map((s) => (
+                <button key={s} className="btn btn-primary btn-sm" onClick={() => recordPointResult(playerNum, 'winner', s)}>{s === 'forehand' ? 'FH' : s === 'backhand' ? 'BH' : 'Net'}</button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <p style={{ marginBottom: '0.5rem', color: 'white' }}>Forced Error</p>
+            <div className="track-btn-row" style={{ marginBottom: '1.25rem' }}>
+              {['forehand', 'backhand', 'net'].map((s) => (
+                <button key={s} className="btn btn-error btn-sm" onClick={() => recordPointResult(playerNum, 'forced_error', s)}>{s === 'forehand' ? 'FH' : s === 'backhand' ? 'BH' : 'Net'}</button>
+              ))}
+            </div>
+            <p style={{ marginBottom: '0.5rem', color: 'white' }}>Unforced Error</p>
+            <div className="track-btn-row">
+              {['forehand', 'backhand', 'net'].map((s) => (
+                <button key={s} className="btn btn-error btn-sm" onClick={() => recordPointResult(playerNum, 'unforced_error', s)}>{s === 'forehand' ? 'FH' : s === 'backhand' ? 'BH' : 'Net'}</button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     )
 
@@ -483,7 +554,7 @@ export default function Track() {
           {history.length > 0 && <button className="btn btn-outline btn-sm" onClick={undo}>Undo</button>}
         </div>
         <h3>How did the point end?</h3>
-        <div className="form-grid">
+        <div>
           <PlayerButtons playerNum={1} name={p1Name} />
           <PlayerButtons playerNum={2} name={p2Name} />
         </div>
@@ -547,13 +618,14 @@ export default function Track() {
         <hr />
         <h2>Save to Match Log</h2>
         <div className="form-group">
-          <label>Match Description</label>
-          <textarea rows="3" value={matchDescription} onChange={(e) => setMatchDescription(e.target.value)} placeholder="Key moments, turning points..." />
+          <label>Match Description <span style={{ color: '#ef4444' }}>*</span></label>
+          <textarea rows="3" value={matchDescription} onChange={(e) => { setMatchDescription(e.target.value); setSaveError('') }} placeholder="Key moments, turning points..." />
         </div>
         <div className="form-group">
-          <label>Mental Game</label>
-          <textarea rows="3" value={mentalGame} onChange={(e) => setMentalGame(e.target.value)} placeholder="How did you feel?" />
+          <label>Mental Game <span style={{ color: '#ef4444' }}>*</span></label>
+          <textarea rows="3" value={mentalGame} onChange={(e) => { setMentalGame(e.target.value); setSaveError('') }} placeholder="How did you feel?" />
         </div>
+        {saveError && <div className="alert alert-error">{saveError}</div>}
         <button className="btn btn-primary btn-full" onClick={handleSave}>Save to Match Log</button>
         {saveMsg && <div className="alert alert-success">{saveMsg}</div>}
         <hr />

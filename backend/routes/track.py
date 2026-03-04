@@ -93,13 +93,13 @@ def save_tracked_match():
         first_serve_pct = round(stats1["first_serves_in"] / stats1["first_serves_total"] * 100) if stats1.get("first_serves_total", 0) > 0 else ""
         first_serve_won_pct = round(stats1.get("first_serve_points_won", 0) / stats1["first_serves_in"] * 100) if stats1.get("first_serves_in", 0) > 0 else ""
         second_serve_pct = round(stats1["second_serves_in"] / stats1["second_serves_total"] * 100) if stats1.get("second_serves_total", 0) > 0 else ""
-        return_pct = round(stats1.get("return_points_won", 0) / stats1.get("return_points_total", 0) * 100) if stats1.get("return_points_total", 0) > 0 else ""
+        return_pct = round(stats1.get("returns_in", 0) / stats1.get("return_attempts", 0) * 100) if stats1.get("return_attempts", 0) > 0 else ""
 
         # Calculate for opponent
         opp_first_serve_pct = round(stats2["first_serves_in"] / stats2["first_serves_total"] * 100) if stats2.get("first_serves_total", 0) > 0 else ""
         opp_first_serve_won_pct = round(stats2.get("first_serve_points_won", 0) / stats2["first_serves_in"] * 100) if stats2.get("first_serves_in", 0) > 0 else ""
         opp_second_serve_pct = round(stats2["second_serves_in"] / stats2["second_serves_total"] * 100) if stats2.get("second_serves_total", 0) > 0 else ""
-        opp_return_pct = round(stats2.get("return_points_won", 0) / stats2.get("return_points_total", 0) * 100) if stats2.get("return_points_total", 0) > 0 else ""
+        opp_return_pct = round(stats2.get("returns_in", 0) / stats2.get("return_attempts", 0) * 100) if stats2.get("return_attempts", 0) > 0 else ""
 
         # Infer playing style
         opp_playing_style = _infer_playing_style(stats2, user_id=user_id)
@@ -159,7 +159,7 @@ def save_tracked_match():
         # Add missing opponent headers
         opp_headers = [
             "Opp. First Serve %", "Opp. First Serve % Won", "Opp. Second Serve %",
-            "Opp. Aces", "Opp. Double Faults", "Opp. Return %",
+            "Opp. Aces", "Opp. Double Faults", "Opp. Return %", "Opp. Return % Won",
             "Opp. Winners", "Opp. Unforced Errors", "Opp. Forced Errors",
             "Opp. Net Points Won", "Opp. Break Points Won", "Opp. Break Points Saved",
             "Opp. Points Won", "Points Won",
