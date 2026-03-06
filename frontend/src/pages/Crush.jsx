@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import api from '../api/client'
 import logo from '../assets/matchgenie.png'
 
+const LOADING_PHRASES = ['Hold on! MatchGenie is granting your wishes...']
+
 const PROMPTS = [
   'How do I beat an opponent?',
   'Generate training plan',
@@ -26,6 +28,7 @@ export default function Crush() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
+  const [phraseIndex, setPhraseIndex] = useState(0)
   const [matchCount, setMatchCount] = useState(0)
   const [teamCount, setTeamCount] = useState(0)
   const [promptCount, setPromptCount] = useState(0)
@@ -36,6 +39,15 @@ export default function Crush() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (!streaming) return
+    setPhraseIndex(0)
+    const interval = setInterval(() => {
+      setPhraseIndex((i) => (i + 1) % LOADING_PHRASES.length)
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [streaming])
 
   // Load user data for sidebar
   useEffect(() => {
@@ -186,11 +198,15 @@ export default function Crush() {
               </div>
               <div className="crush-msg-content">
                 {msg.role === 'assistant' ? (
-                  <div dangerouslySetInnerHTML={{ __html: formatMarkdown(msg.content) }} />
+                  streaming && i === messages.length - 1 && !msg.content ? (
+                    <p className="crush-loading-phrase">{LOADING_PHRASES[phraseIndex]}</p>
+                  ) : (
+                    <div dangerouslySetInnerHTML={{ __html: formatMarkdown(msg.content) }} />
+                  )
                 ) : (
                   <p>{msg.content}</p>
                 )}
-                {msg.role === 'assistant' && streaming && i === messages.length - 1 && (
+                {msg.role === 'assistant' && streaming && i === messages.length - 1 && msg.content && (
                   <span className="cursor-blink">|</span>
                 )}
               </div>

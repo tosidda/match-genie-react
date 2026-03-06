@@ -522,6 +522,8 @@ a:hover { color: var(--accent-hover); }
 .crush-msg-content h3, .crush-msg-content h2 { margin-top: 1rem; margin-bottom: 0.5rem; }
 .cursor-blink { animation: blink 1s infinite; }
 @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+.crush-loading-phrase { color: #a1a7b4; font-style: italic; animation: fadePhrase 0.4s ease-in-out; }
+@keyframes fadePhrase { from { opacity: 0; } to { opacity: 1; } }
 
 /* Input bar */
 .crush-input-bar { display: flex; align-items: center; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 28px; padding: 0.25rem 0.25rem 0.25rem 1.25rem; }

@@ -4,6 +4,11 @@ import Plot from 'react-plotly.js'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
+const fmtDate = (d) => {
+  const dt = new Date(d)
+  return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
 const GOAL_OPTIONS = [
   'First Serve %', 'Return %', 'Unforced Errors', 'Serve Speed',
   'Net Points Won', 'First Serve % Won', 'Second Serve %', 'Double Faults',
@@ -244,10 +249,10 @@ export default function Stats() {
                 <Plot
                   key={name}
                   data={[
-                    { type: 'scatter', mode: 'lines+markers', x: trend.dates, y: trend.values, name, connectgaps: true, line: { color: '#22c55e' } },
-                    { type: 'scatter', mode: 'lines', x: [trend.dates[0], trend.dates[trend.dates.length - 1]], y: [trend.goal, trend.goal], name: 'Goal', line: { color: '#E4003A', dash: 'dash' } },
+                    { type: 'scatter', mode: 'lines+markers', x: trend.dates.map(fmtDate), y: trend.values, name, connectgaps: true, line: { color: '#22c55e' } },
+                    { type: 'scatter', mode: 'lines', x: [fmtDate(trend.dates[0]), fmtDate(trend.dates[trend.dates.length - 1])], y: [trend.goal, trend.goal], name: 'Goal', line: { color: '#E4003A', dash: 'dash' } },
                   ]}
-                  layout={{ ...PLOTLY_LAYOUT, title: `${name} Over Time`, yaxis: { title: name } }}
+                  layout={{ ...PLOTLY_LAYOUT, title: `${name} Over Time`, xaxis: { type: 'category' }, yaxis: { title: name } }}
                   config={PLOTLY_CONFIG}
                   useResizeHandler
                   style={{ width: '100%', height: '100%' }}
@@ -392,10 +397,10 @@ export default function Stats() {
               <Plot
                 key={name}
                 data={[
-                  { type: 'scatter', mode: 'lines+markers', x: trend.dates, y: trend.values, name, connectgaps: true, line: { color: '#22c55e' } },
-                  { type: 'scatter', mode: 'lines', x: [trend.dates[0], trend.dates[trend.dates.length - 1]], y: [trend.goal, trend.goal], name: 'Goal', line: { color: '#E4003A', dash: 'dash' } },
+                  { type: 'scatter', mode: 'lines+markers', x: trend.dates.map(fmtDate), y: trend.values, name, connectgaps: true, line: { color: '#22c55e' } },
+                  { type: 'scatter', mode: 'lines', x: [fmtDate(trend.dates[0]), fmtDate(trend.dates[trend.dates.length - 1])], y: [trend.goal, trend.goal], name: 'Goal', line: { color: '#E4003A', dash: 'dash' } },
                 ]}
-                layout={{ ...PLOTLY_LAYOUT, title: `${name} Over Time`, yaxis: { title: name } }}
+                layout={{ ...PLOTLY_LAYOUT, title: `${name} Over Time`, xaxis: { type: 'category' }, yaxis: { title: name } }}
                 config={PLOTLY_CONFIG}
                 useResizeHandler
                 style={{ width: '100%', height: '100%' }}
