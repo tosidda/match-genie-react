@@ -137,6 +137,9 @@ def login():
         if not check_password(password, user.hashed_password):
             return jsonify({"error": "Invalid username or password"}), 401
 
+        if user.is_archived:
+            return jsonify({"error": "This account has been disabled."}), 403
+
         user.last_login = datetime.now(timezone.utc).isoformat()
         db.commit()
 
@@ -184,6 +187,9 @@ def google_login():
                 # Backfill email for existing Google users that may be missing it
                 if not user.email and email:
                     user.email = email
+
+            if user.is_archived:
+                return jsonify({"error": "This account has been disabled."}), 403
 
             user.last_login = datetime.now(timezone.utc).isoformat()
             db.commit()

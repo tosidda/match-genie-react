@@ -9,6 +9,7 @@ export default function Admin() {
   const { user } = useAuth()
   const [users, setUsers] = useState([])
   const [equityUpdating, setEquityUpdating] = useState({})
+  const [archiveUpdating, setArchiveUpdating] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sortKey, setSortKey] = useState('name')
@@ -126,6 +127,7 @@ export default function Admin() {
                 { key: 'token_count', label: 'Tokens' },
                 { key: 'is_equity_player', label: 'Equity Player' },
                 { key: 'last_login', label: 'Last Login' },
+                { key: 'is_archived', label: 'Archived' },
               ].map(({ key, label }) => (
                 <th key={key} onClick={() => handleSort(key)} className="admin-th">
                   {label}<SortArrow k={key} />
@@ -135,7 +137,7 @@ export default function Admin() {
           </thead>
           <tbody>
             {sorted.map((u) => (
-              <tr key={u.id} className="admin-tr">
+              <tr key={u.id} className="admin-tr" style={u.is_archived ? { opacity: 0.45 } : {}}>
                 <td className="admin-td admin-td-name">{u.name || '—'}</td>
                 <td className="admin-td">{u.email || '—'}</td>
                 <td className="admin-td">{u.location || '—'}</td>
@@ -169,6 +171,26 @@ export default function Admin() {
                 </td>
                 <td className="admin-td" style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
                   {u.last_login ? new Date(u.last_login).toLocaleString() : '—'}
+                </td>
+                <td className="admin-td" style={{ textAlign: 'center' }}>
+                  <button
+                    className={`btn btn-sm ${u.is_archived ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ fontSize: '0.75rem', opacity: archiveUpdating[u.id] ? 0.5 : 1 }}
+                    disabled={archiveUpdating[u.id]}
+                    onClick={async () => {
+                      setArchiveUpdating((prev) => ({ ...prev, [u.id]: true }))
+                      try {
+                        await api.put(`/admin/users/${u.id}/archive`, { is_archived: !u.is_archived })
+                        setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, is_archived: !u.is_archived } : x))
+                      } catch (err) {
+                        console.error('Archive update failed:', err.response?.data || err)
+                      } finally {
+                        setArchiveUpdating((prev) => ({ ...prev, [u.id]: false }))
+                      }
+                    }}
+                  >
+                    {u.is_archived ? 'Unarchive' : 'Archive'}
+                  </button>
                 </td>
               </tr>
             ))}

@@ -36,9 +36,36 @@ def get_all_users():
                 "token_count": u.token_count or 0,
                 "is_equity_player": bool(u.is_equity_player),
                 "last_login": u.last_login or "",
+                "is_archived": bool(u.is_archived),
             })
 
         return jsonify({"users": result})
+    finally:
+        db.close()
+
+
+@admin_bp.route("/users/<int:target_id>/archive", methods=["PUT"])
+@jwt_required()
+def toggle_archive(target_id):
+    user_id = get_jwt_identity()
+    db = SessionLocal()
+    try:
+        requester = db.query(User).filter_by(id=int(user_id)).first()
+        admin_usernames = [u.strip().lower() for u in get_admin_usernames()]
+        if not requester or requester.username.strip().lower() not in admin_usernames:
+            return jsonify({"error": "Unauthorized"}), 403
+
+        target = db.query(User).filter_by(id=target_id).first()
+        if not target:
+            return jsonify({"error": "User not found"}), 404
+
+        data = request.get_json()
+        target.is_archived = 1 if data.get("is_archived") else 0
+        db.commit()
+        return jsonify({"is_archived": bool(target.is_archived)})
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
     finally:
         db.close()
 

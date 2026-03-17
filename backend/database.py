@@ -41,6 +41,7 @@ class User(Base):
     stripe_customer_id = Column(String, unique=True, nullable=True)
     stripe_subscription_id = Column(String, unique=True, nullable=True)
     last_login = Column(String, nullable=True)
+    is_archived = Column(Integer, default=0)
 
     shares_given = relationship("SharedStats", foreign_keys="SharedStats.sharer_id", back_populates="sharer")
     shares_received = relationship("SharedStats", foreign_keys="SharedStats.sharee_id", back_populates="sharee")
@@ -116,6 +117,8 @@ for col in ['stripe_customer_id', 'stripe_subscription_id']:
 for col in ['first_name', 'last_name', 'location', 'utr', 'profile_pic', 'email', 'last_login']:
     if col not in columns:
         _add_column(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+if 'is_archived' not in columns:
+    _add_column("ALTER TABLE users ADD COLUMN is_archived INTEGER DEFAULT 0")
 
 ss_columns = [c['name'] for c in inspector.get_columns('shared_stats')]
 for col_name in ['goal_comments', 'match_comments', 'general_comment']:
