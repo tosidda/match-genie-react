@@ -3,6 +3,9 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/client'
 import logo from '../assets/matchgenie.png'
+
+const ADMIN_USERNAMES = ['sid']
+
 export default function Navbar() {
   const { user, logout, updateUser } = useAuth()
   const [showProfile, setShowProfile] = useState(false)
@@ -79,6 +82,7 @@ export default function Navbar() {
   const displayName = user?.first_name || user?.username
   const profilePicUrl = picPreview || (user?.profile_pic ? `/api/auth/profile-pic/${user.profile_pic}` : null)
   const initial = (user?.first_name || user?.username || 'U').charAt(0).toUpperCase()
+  const isAdmin = ADMIN_USERNAMES.includes(user?.username?.toLowerCase())
 
   return (
     <nav className="navbar">
@@ -116,6 +120,11 @@ export default function Navbar() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Coach
         </NavLink>
+        {isAdmin && (
+          <NavLink to="/admin" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} style={{ fontSize: '0.75rem', opacity: 0.7 }}>
+            Admin
+          </NavLink>
+        )}
       </div>
       <div className="navbar-user" ref={dropdownRef}>
         <a href="https://www.matchgenie.ai" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Home</a>

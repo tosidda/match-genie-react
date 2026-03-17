@@ -29,6 +29,8 @@ def create_app():
     from routes.video import video_bp
     from routes.track import track_bp
     from routes.voice_log import voice_log_bp
+    from routes.admin import admin_bp
+
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(matches_bp, url_prefix="/api/matches")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
@@ -36,6 +38,7 @@ def create_app():
     app.register_blueprint(video_bp, url_prefix="/api/video")
     app.register_blueprint(track_bp, url_prefix="/api/track")
     app.register_blueprint(voice_log_bp, url_prefix="/api/voice-log")
+    app.register_blueprint(admin_bp, url_prefix="/api/admin")
 
     @app.route("/api/health")
     def health():

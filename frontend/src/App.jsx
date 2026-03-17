@@ -11,7 +11,16 @@ import Matches from './pages/Matches'
 import Video from './pages/Video'
 import Track from './pages/Track'
 import Coach from './pages/Coach'
+import Admin from './pages/Admin'
+
 function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="loading">Loading...</div>
+  if (!user) return <Navigate to="/login" />
+  return children
+}
+
+function AdminRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading">Loading...</div>
   if (!user) return <Navigate to="/login" />
@@ -40,6 +49,7 @@ export default function App() {
           <Route path="/video" element={<ProtectedRoute><Video /></ProtectedRoute>} />
           <Route path="/track" element={<ProtectedRoute><Track /></ProtectedRoute>} />
           <Route path="/coach" element={<ProtectedRoute><Coach /></ProtectedRoute>} />
+          <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
         </Routes>
       </main>
     </div>
