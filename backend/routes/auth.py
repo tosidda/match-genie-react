@@ -1,5 +1,6 @@
 import os
 import bcrypt
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_from_directory
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from google.oauth2 import service_account, id_token
@@ -136,6 +137,9 @@ def login():
         if not check_password(password, user.hashed_password):
             return jsonify({"error": "Invalid username or password"}), 401
 
+        user.last_login = datetime.now(timezone.utc).isoformat()
+        db.commit()
+
         token = create_access_token(identity=str(user.id))
         return jsonify({
             "token": token,
@@ -180,8 +184,10 @@ def google_login():
                 # Backfill email for existing Google users that may be missing it
                 if not user.email and email:
                     user.email = email
-                    db.commit()
-                    db.refresh(user)
+
+            user.last_login = datetime.now(timezone.utc).isoformat()
+            db.commit()
+            db.refresh(user)
 
             token = create_access_token(identity=str(user.id))
             return jsonify({

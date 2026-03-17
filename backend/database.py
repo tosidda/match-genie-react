@@ -40,6 +40,7 @@ class User(Base):
     subscription_tier = Column(String, default='free')
     stripe_customer_id = Column(String, unique=True, nullable=True)
     stripe_subscription_id = Column(String, unique=True, nullable=True)
+    last_login = Column(String, nullable=True)
 
     shares_given = relationship("SharedStats", foreign_keys="SharedStats.sharer_id", back_populates="sharer")
     shares_received = relationship("SharedStats", foreign_keys="SharedStats.sharee_id", back_populates="sharee")
@@ -112,7 +113,7 @@ if 'is_equity_player' not in columns:
 for col in ['stripe_customer_id', 'stripe_subscription_id']:
     if col not in columns:
         _add_column(f"ALTER TABLE users ADD COLUMN {col} TEXT")
-for col in ['first_name', 'last_name', 'location', 'utr', 'profile_pic', 'email']:
+for col in ['first_name', 'last_name', 'location', 'utr', 'profile_pic', 'email', 'last_login']:
     if col not in columns:
         _add_column(f"ALTER TABLE users ADD COLUMN {col} TEXT")
 

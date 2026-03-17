@@ -35,6 +35,7 @@ def get_all_users():
                 "voice_count": u.voice_count or 0,
                 "token_count": u.token_count or 0,
                 "is_equity_player": bool(u.is_equity_player),
+                "last_login": u.last_login or "",
             })
 
         return jsonify({"users": result})
