@@ -1,5 +1,6 @@
 import os
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, inspect, text
+from sqlalchemy.exc import OperationalError as SAOperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
@@ -37,6 +38,9 @@ class User(Base):
     is_equity_player = Column(Integer, default=0)
     email = Column(String, nullable=True)
     subscription_tier = Column(String, default='free')
+    stripe_customer_id = Column(String, unique=True, nullable=True)
+    stripe_subscription_id = Column(String, unique=True, nullable=True)
+
     shares_given = relationship("SharedStats", foreign_keys="SharedStats.sharer_id", back_populates="sharer")
     shares_received = relationship("SharedStats", foreign_keys="SharedStats.sharee_id", back_populates="sharee")
 
@@ -77,66 +81,49 @@ class TrackingCode(Base):
 # Create tables
 Base.metadata.create_all(engine)
 
-# Add progress_goals column if it doesn't exist (for existing DBs)
+def _add_column(sql):
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(sql))
+            conn.commit()
+    except SAOperationalError:
+        pass  # Column already exists (race between workers or re-deploy)
+
+# Add missing columns for existing DBs
 inspector = inspect(engine)
 columns = [c['name'] for c in inspector.get_columns('users')]
+
 if 'progress_goals' not in columns:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN progress_goals TEXT"))
-        conn.commit()
-
+    _add_column("ALTER TABLE users ADD COLUMN progress_goals TEXT")
 if 'training_plan' not in columns:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN training_plan TEXT"))
-        conn.commit()
-
+    _add_column("ALTER TABLE users ADD COLUMN training_plan TEXT")
 if 'prompt_count' not in columns:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN prompt_count INTEGER DEFAULT 0"))
-        conn.commit()
-
+    _add_column("ALTER TABLE users ADD COLUMN prompt_count INTEGER DEFAULT 0")
 if 'voice_count' not in columns:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN voice_count INTEGER DEFAULT 0"))
-        conn.commit()
-
+    _add_column("ALTER TABLE users ADD COLUMN voice_count INTEGER DEFAULT 0")
 if 'token_count' not in columns:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN token_count INTEGER DEFAULT 0"))
-        conn.commit()
-
+    _add_column("ALTER TABLE users ADD COLUMN token_count INTEGER DEFAULT 0")
 if 'subscription_tier' not in columns:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free'"))
-        conn.commit()
-
+    _add_column("ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free'")
 if 'match_count' not in columns:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN match_count INTEGER DEFAULT 0"))
-        conn.commit()
-
+    _add_column("ALTER TABLE users ADD COLUMN match_count INTEGER DEFAULT 0")
 if 'is_equity_player' not in columns:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN is_equity_player INTEGER DEFAULT 0"))
-        conn.commit()
-
+    _add_column("ALTER TABLE users ADD COLUMN is_equity_player INTEGER DEFAULT 0")
+for col in ['stripe_customer_id', 'stripe_subscription_id']:
+    if col not in columns:
+        _add_column(f"ALTER TABLE users ADD COLUMN {col} TEXT")
 for col in ['first_name', 'last_name', 'location', 'utr', 'profile_pic', 'email']:
     if col not in columns:
-        with engine.connect() as conn:
-            conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} TEXT"))
-            conn.commit()
+        _add_column(f"ALTER TABLE users ADD COLUMN {col} TEXT")
 
 ss_columns = [c['name'] for c in inspector.get_columns('shared_stats')]
 for col_name in ['goal_comments', 'match_comments', 'general_comment']:
     if col_name not in ss_columns:
-        with engine.connect() as conn:
-            conn.execute(text(f"ALTER TABLE shared_stats ADD COLUMN {col_name} TEXT"))
-            conn.commit()
+        _add_column(f"ALTER TABLE shared_stats ADD COLUMN {col_name} TEXT")
 
-# Ensure shared_match_feedback table exists (handled by create_all above, but refresh inspector)
+# Ensure new tables exist
 inspector = inspect(engine)
 if 'shared_match_feedback' not in inspector.get_table_names():
     SharedMatchFeedback.__table__.create(engine)
-
 if 'tracking_codes' not in inspector.get_table_names():
     TrackingCode.__table__.create(engine)
