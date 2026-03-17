@@ -125,6 +125,7 @@ export default function Admin() {
                 { key: 'prompt_count', label: 'AI Prompts' },
                 { key: 'token_count', label: 'Tokens' },
                 { key: 'is_equity_player', label: 'Equity Player' },
+                { key: 'last_login', label: 'Last Login' },
               ].map(({ key, label }) => (
                 <th key={key} onClick={() => handleSort(key)} className="admin-th">
                   {label}<SortArrow k={key} />
@@ -165,6 +166,9 @@ export default function Admin() {
                       }
                     }}
                   />
+                </td>
+                <td className="admin-td" style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                  {u.last_login ? new Date(u.last_login).toLocaleString() : '—'}
                 </td>
               </tr>
             ))}
