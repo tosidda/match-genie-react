@@ -74,6 +74,7 @@ export default function Log() {
   const voiceEndRef = useRef(null)
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
+  const autoRestartRef = useRef(false)
 
   useEffect(() => {
     api.get('/matches').then((res) => {
@@ -143,11 +144,14 @@ export default function Log() {
       return
     }
 
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
     const recognition = new SpeechRecognition()
-    recognition.continuous = true
+    recognition.continuous = !isIOS  // iOS ignores continuous=true
     recognition.interimResults = true
     recognition.lang = 'en-US'
     recognitionRef.current = recognition
+    autoRestartRef.current = true
 
     let finalTranscript = ''
 
@@ -163,12 +167,20 @@ export default function Log() {
       setLiveTranscript(finalTranscript + interim)
     }
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      // On iOS, 'no-speech' is common — restart instead of stopping
+      if (isIOS && autoRestartRef.current && event.error === 'no-speech') return
+      autoRestartRef.current = false
       setListening(false)
     }
 
     recognition.onend = () => {
-      setListening(false)
+      // On iOS, auto-restart to simulate continuous listening
+      if (isIOS && autoRestartRef.current) {
+        try { recognition.start() } catch { }
+      } else {
+        setListening(false)
+      }
     }
 
     setLiveTranscript('')
@@ -177,6 +189,7 @@ export default function Log() {
   }
 
   const stopListeningAndSend = () => {
+    autoRestartRef.current = false
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
@@ -209,6 +222,7 @@ export default function Log() {
   }
 
   const exitVoiceMode = () => {
+    autoRestartRef.current = false
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     if (recognitionRef.current) {
       recognitionRef.current.stop()

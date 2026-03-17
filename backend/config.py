@@ -26,3 +26,6 @@ def get_google_oauth_config():
 
 def get_gcs_bucket():
     return get_gsheets_creds().get("gcs_bucket", "matchgenie-uploads-prod")
+
+def get_admin_usernames():
+    return get_secrets().get("ADMIN_USERNAMES", [])

@@ -11,7 +11,6 @@ import Matches from './pages/Matches'
 import Video from './pages/Video'
 import Track from './pages/Track'
 import Coach from './pages/Coach'
-
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading">Loading...</div>

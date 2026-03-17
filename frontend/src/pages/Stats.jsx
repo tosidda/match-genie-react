@@ -357,6 +357,7 @@ export default function Stats() {
       {/* Progress Goals */}
       <div className="goals-panel">
         <h3>Progress Goals</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--muted-text)', marginTop: '-0.25rem', marginBottom: '0.75rem' }}>(select progress goals to track)</p>
         <div className="chip-group">
           {GOAL_OPTIONS.map((g) => (
             <button key={g} type="button"

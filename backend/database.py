@@ -33,7 +33,10 @@ class User(Base):
     utr = Column(String, nullable=True)
     profile_pic = Column(String, nullable=True)
     token_count = Column(Integer, default=0)
-
+    match_count = Column(Integer, default=0)
+    is_equity_player = Column(Integer, default=0)
+    email = Column(String, nullable=True)
+    subscription_tier = Column(String, default='free')
     shares_given = relationship("SharedStats", foreign_keys="SharedStats.sharer_id", back_populates="sharer")
     shares_received = relationship("SharedStats", foreign_keys="SharedStats.sharee_id", back_populates="sharee")
 
@@ -62,6 +65,14 @@ class SharedMatchFeedback(Base):
 
     sharer = relationship("User", foreign_keys=[sharer_id])
     sharee = relationship("User", foreign_keys=[sharee_id])
+
+class TrackingCode(Base):
+    __tablename__ = 'tracking_codes'
+    id = Column(Integer, primary_key=True)
+    code = Column(String, unique=True, nullable=False)
+    player_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    expires_at = Column(String, nullable=False)
+    player = relationship("User", foreign_keys=[player_id])
 
 # Create tables
 Base.metadata.create_all(engine)
@@ -94,7 +105,22 @@ if 'token_count' not in columns:
         conn.execute(text("ALTER TABLE users ADD COLUMN token_count INTEGER DEFAULT 0"))
         conn.commit()
 
-for col in ['first_name', 'last_name', 'location', 'utr', 'profile_pic']:
+if 'subscription_tier' not in columns:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free'"))
+        conn.commit()
+
+if 'match_count' not in columns:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN match_count INTEGER DEFAULT 0"))
+        conn.commit()
+
+if 'is_equity_player' not in columns:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN is_equity_player INTEGER DEFAULT 0"))
+        conn.commit()
+
+for col in ['first_name', 'last_name', 'location', 'utr', 'profile_pic', 'email']:
     if col not in columns:
         with engine.connect() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} TEXT"))
@@ -111,3 +137,6 @@ for col_name in ['goal_comments', 'match_comments', 'general_comment']:
 inspector = inspect(engine)
 if 'shared_match_feedback' not in inspector.get_table_names():
     SharedMatchFeedback.__table__.create(engine)
+
+if 'tracking_codes' not in inspector.get_table_names():
+    TrackingCode.__table__.create(engine)

@@ -1,9 +1,12 @@
 import gspread
+import random
+import string
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from openai import OpenAI
 
-from database import SessionLocal, User
+from database import SessionLocal, User, TrackingCode
 from config import get_gsheets_creds, get_openai_key
 
 track_bp = Blueprint("track", __name__)
@@ -73,6 +76,47 @@ def _infer_playing_style(opp_stats, user_id=None):
         return ""
 
 
+@track_bp.route("/generate-code", methods=["POST"])
+@jwt_required()
+def generate_code():
+    user_id = get_jwt_identity()
+    db = SessionLocal()
+    try:
+        # Generate unique 6-char alphanumeric code
+        while True:
+            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            if not db.query(TrackingCode).filter_by(code=code).first():
+                break
+
+        expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat()
+        tc = TrackingCode(code=code, player_id=int(user_id), expires_at=expires_at)
+        db.add(tc)
+        db.commit()
+        return jsonify({"code": code, "expires_at": expires_at})
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@track_bp.route("/verify-code", methods=["GET"])
+@jwt_required()
+def verify_code():
+    code = request.args.get("code", "").strip().upper()
+    db = SessionLocal()
+    try:
+        tc = db.query(TrackingCode).filter_by(code=code).first()
+        if not tc:
+            return jsonify({"error": "Invalid code"}), 404
+        if datetime.utcnow() > datetime.fromisoformat(tc.expires_at):
+            return jsonify({"error": "Code has expired"}), 410
+        player_name = tc.player.first_name or tc.player.username
+        return jsonify({"player_name": player_name, "player_id": tc.player_id})
+    finally:
+        db.close()
+
+
 @track_bp.route("/save", methods=["POST"])
 @jwt_required()
 def save_tracked_match():
@@ -88,6 +132,15 @@ def save_tracked_match():
         stats1 = data.get("player1_stats", {})
         stats2 = data.get("player2_stats", {})
         match_info = data.get("match_info", {})
+
+        # If tracking for another player via session code
+        session_code = data.get("session_code", "").strip().upper()
+        if session_code:
+            tc = db.query(TrackingCode).filter_by(code=session_code).first()
+            if tc and datetime.utcnow() <= datetime.fromisoformat(tc.expires_at):
+                player_user = db.query(User).filter_by(id=tc.player_id).first()
+                if player_user and player_user.google_sheet_url:
+                    user = player_user
 
         # Calculate serve percentages for player 1
         first_serve_pct = round(stats1["first_serves_in"] / stats1["first_serves_total"] * 100) if stats1.get("first_serves_total", 0) > 0 else ""
@@ -177,6 +230,9 @@ def save_tracked_match():
 
         row_to_append = [row_dict.get(h, "") for h in headers]
         worksheet.append_row(row_to_append, value_input_option="USER_ENTERED")
+
+        user.match_count = (user.match_count or 0) + 1
+        db.commit()
 
         return jsonify({"message": "Match saved successfully"})
     except Exception as e:

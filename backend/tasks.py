@@ -32,7 +32,8 @@ import toml
 
 # Celery configuration
 # Use Redis as the message broker and result backend.
-celery_app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
+_redis_url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+celery_app = Celery('tasks', broker=_redis_url, backend=_redis_url)
 
 # --- Helper function to load secrets for the Celery worker ---
 def load_streamlit_secrets():

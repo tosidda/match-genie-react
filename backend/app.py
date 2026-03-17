@@ -9,7 +9,13 @@ def create_app():
     app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "match-genie-jwt-secret-change-me")
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = 86400  # 24 hours
 
-    CORS(app, origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:3456"], supports_credentials=True)
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3456",
+        "https://app.matchgenie.ai",
+    ]
+    CORS(app, origins=allowed_origins, supports_credentials=True)
     JWTManager(app)
 
     # Ensure DB tables exist
@@ -23,7 +29,6 @@ def create_app():
     from routes.video import video_bp
     from routes.track import track_bp
     from routes.voice_log import voice_log_bp
-
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(matches_bp, url_prefix="/api/matches")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")

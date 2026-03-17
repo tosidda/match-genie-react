@@ -31,7 +31,7 @@ function getPointDisplay(points, oppPoints, hasAds) {
 export default function Track() {
   const { user } = useAuth()
   const [phase, setPhase] = useState('setup')
-  const [p1Name] = useState(user?.first_name || user?.username || '')
+  const [p1Name, setP1Name] = useState(user?.first_name || user?.username || '')
   const [p2Name, setP2Name] = useState('')
   const [matchFormat, setMatchFormat] = useState([])
   const [surfaceType, setSurfaceType] = useState('Hard')
@@ -56,6 +56,14 @@ export default function Track() {
   const [previousOpponents, setPreviousOpponents] = useState([])
   const [showP2Suggestions, setShowP2Suggestions] = useState(false)
   const [setupError, setSetupError] = useState('')
+  const [trackingFor, setTrackingFor] = useState(null) // {code, playerName} or null
+  const [codeInput, setCodeInput] = useState('')
+  const [codeError, setCodeError] = useState('')
+  const [generatedCode, setGeneratedCode] = useState(null) // {code, expiresAt}
+
+  useEffect(() => {
+    setP1Name(trackingFor ? trackingFor.playerName : (user?.first_name || user?.username || ''))
+  }, [trackingFor, user])
 
   useEffect(() => {
     api.get('/matches').then((res) => {
@@ -318,10 +326,32 @@ export default function Track() {
           match_description: matchDescription,
           mental_game: mentalGame,
         },
+        session_code: trackingFor?.code || '',
       })
-      setSaveMsg('Match saved to your Match Log!')
+      setSaveMsg(trackingFor ? `Match saved to ${trackingFor.playerName}'s Match Log!` : 'Match saved to your Match Log!')
     } catch (err) {
       setSaveMsg(err.response?.data?.error || 'Failed to save match')
+    }
+  }
+
+  const handleGenerateCode = async () => {
+    try {
+      const res = await api.post('/track/generate-code')
+      setGeneratedCode(res.data)
+    } catch (err) {
+      console.error('Failed to generate code', err)
+    }
+  }
+
+  const handleEnterCode = async () => {
+    if (!codeInput.trim()) return
+    setCodeError('')
+    try {
+      const res = await api.get(`/track/verify-code?code=${codeInput.trim().toUpperCase()}`)
+      setTrackingFor({ code: codeInput.trim().toUpperCase(), playerName: res.data.player_name })
+      setCodeInput('')
+    } catch (err) {
+      setCodeError(err.response?.data?.error || 'Invalid or expired code')
     }
   }
 
@@ -374,6 +404,41 @@ export default function Track() {
       <div className="track-page">
         <h1>Live Tracker</h1>
         <h2>Match Setup</h2>
+        {/* Tracking for another player banner */}
+        {trackingFor ? (
+          <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid #22c55e', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ color: '#22c55e', fontWeight: 600 }}>Tracking for: {trackingFor.playerName}</span>
+            <button className="btn btn-outline btn-sm" onClick={() => setTrackingFor(null)}>Cancel</button>
+          </div>
+        ) : (
+          <div style={{ marginBottom: '1.25rem' }}>
+            {/* Enter a code */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <input
+                type="text"
+                placeholder="Enter tracking code"
+                value={codeInput}
+                onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeError('') }}
+                style={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                maxLength={6}
+              />
+              <button className="btn btn-primary btn-sm" onClick={handleEnterCode}>Track for Player</button>
+            </div>
+            {codeError && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0 0 0.5rem' }}>{codeError}</p>}
+            {/* Generate a code */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn btn-outline btn-sm" onClick={handleGenerateCode}>Generate code for parent/friend</button>
+              {generatedCode && (
+                <span style={{ fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.15em', color: '#f5c518' }}>
+                  {generatedCode.code}
+                  <span style={{ fontSize: '0.7rem', color: 'var(--muted-text)', fontWeight: 400, marginLeft: '0.5rem', letterSpacing: 'normal' }}>
+                    (valid 24h)
+                  </span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
         <div className="form-row">
           <div className="form-group"><label>You</label><input value={p1Name} readOnly style={{ opacity: 0.7, cursor: 'default' }} /></div>
           <div className="form-group">

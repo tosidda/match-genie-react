@@ -184,6 +184,9 @@ def log_match():
         worksheet.append_row(row_to_append, value_input_option="USER_ENTERED")
         new_row_index = len(worksheet.get_all_values())
 
+        user.match_count = (user.match_count or 0) + 1
+        db.commit()
+
         # If video uploaded, trigger Celery task
         task_id = None
         if uploaded_video:

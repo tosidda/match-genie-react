@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 from werkzeug.utils import secure_filename
 
 from database import SessionLocal, User
-from config import get_gsheets_creds, get_google_oauth_config
+from config import get_gsheets_creds, get_google_oauth_config, get_admin_usernames
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -17,15 +17,20 @@ auth_bp = Blueprint("auth", __name__)
 
 
 def user_dict(user):
+    admin_usernames = [u.strip().lower() for u in get_admin_usernames()]
     return {
         "id": user.id,
         "username": user.username,
+        "email": user.email or "",
         "google_sheet_url": user.google_sheet_url,
         "first_name": user.first_name,
         "last_name": user.last_name,
         "location": user.location,
         "utr": user.utr,
         "profile_pic": user.profile_pic,
+        "subscription_tier": user.subscription_tier or "free",
+        "is_admin": user.username.strip().lower() in admin_usernames,
+        "is_google_user": bool(user.google_id),
     }
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -167,10 +172,16 @@ def google_login():
                     return jsonify({"error": "A user with this email already exists. Please log in with your password."}), 409
 
                 sheet_url = create_google_sheet(email)
-                user = User(username=email, google_id=google_id, google_sheet_url=sheet_url)
+                user = User(username=email, google_id=google_id, google_sheet_url=sheet_url, email=email)
                 db.add(user)
                 db.commit()
                 db.refresh(user)
+            else:
+                # Backfill email for existing Google users that may be missing it
+                if not user.email and email:
+                    user.email = email
+                    db.commit()
+                    db.refresh(user)
 
             token = create_access_token(identity=str(user.id))
             return jsonify({
@@ -207,7 +218,7 @@ def update_profile():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        for field in ['first_name', 'last_name', 'location', 'utr']:
+        for field in ['first_name', 'last_name', 'location', 'utr', 'email']:
             val = request.form.get(field)
             if val is not None:
                 setattr(user, field, val)

@@ -45,6 +45,11 @@ def get_stats():
         df["Match Date"] = pd.to_datetime(df["Match Date"], errors="coerce")
         df = df.dropna(subset=["Match Date"]).sort_values("Match Date")
 
+        # Only show last 12 months of data in graphs
+        if not df.empty:
+            cutoff = df["Match Date"].max() - pd.DateOffset(years=1)
+            df = df[df["Match Date"] >= cutoff]
+
         total = len(df)
         wins = len(df[df["Result"] == "W"])
         win_rate = round((wins / total) * 100, 1) if total > 0 else 0
@@ -187,6 +192,11 @@ def get_shared_stats():
             if not df.empty:
                 df["Match Date"] = pd.to_datetime(df["Match Date"], errors="coerce")
                 df = df.dropna(subset=["Match Date"]).sort_values("Match Date")
+
+                # Only show last 12 months of data in graphs
+                if not df.empty:
+                    cutoff = df["Match Date"].max() - pd.DateOffset(years=1)
+                    df = df[df["Match Date"] >= cutoff]
 
                 total = len(df)
                 wins_count = len(df[df["Result"] == "W"])

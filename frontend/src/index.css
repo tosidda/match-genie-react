@@ -71,6 +71,8 @@ a:hover { color: var(--accent-hover); }
 .nav-track.active { border: 1px solid rgba(236, 72, 153, 0.3); }
 .nav-coach:hover, .nav-coach.active { color: #f87171; background: rgba(248, 113, 113, 0.15); }
 .nav-coach.active { border: 1px solid rgba(248, 113, 113, 0.3); }
+.nav-admin:hover, .nav-admin.active { color: #a78bfa; background: rgba(167, 139, 250, 0.15); }
+.nav-admin.active { border: 1px solid rgba(167, 139, 250, 0.3); }
 .navbar-user { display: flex; align-items: center; gap: 1rem; position: relative; }
 .navbar-username { color: var(--secondary-text); font-size: 0.9rem; }
 .navbar-profile-btn { display: flex; align-items: center; gap: 0.5rem; background: none; border: none; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: var(--border-radius-sm); transition: var(--transition); }
@@ -87,6 +89,7 @@ a:hover { color: var(--accent-hover); }
 .profile-dropdown .profile-form-group input { width: 100%; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: var(--border-radius); color: var(--primary-text); padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: var(--font-family); transition: var(--transition); }
 .profile-dropdown .profile-form-group input:focus { border-color: var(--accent-color); box-shadow: 0 0 0 2px var(--accent-glow); outline: none; }
 .profile-dropdown-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+.profile-plan-badge { text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--accent-color); background: var(--accent-glow); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 999px; padding: 0.2rem 0.85rem; margin: 0 auto 0.75rem; width: fit-content; }
 
 /* Profile pic upload in dropdown */
 .profile-pic-upload { width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 1rem; position: relative; cursor: pointer; overflow: hidden; border: 2px solid var(--border-color); }
@@ -524,6 +527,62 @@ a:hover { color: var(--accent-hover); }
 @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
 .crush-loading-phrase { color: #a1a7b4; font-style: italic; animation: fadePhrase 0.4s ease-in-out; }
 @keyframes fadePhrase { from { opacity: 0; } to { opacity: 1; } }
+
+/* Admin Page */
+.admin-page { padding: 0; }
+.admin-header { margin-bottom: 1.5rem; }
+.admin-header h1 { margin-bottom: 0.25rem; }
+.admin-subtitle { color: var(--secondary-text); font-size: 0.9rem; }
+.admin-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.admin-summary-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 1rem; text-align: center; }
+.admin-summary-value { font-size: 1.75rem; font-weight: 700; color: var(--primary-text); }
+.admin-summary-label { font-size: 0.75rem; color: var(--muted-text); margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.admin-search { width: 100%; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); color: var(--primary-text); padding: 0.65rem 1rem; font-size: 0.9rem; margin-bottom: 1rem; outline: none; }
+.admin-search:focus { border-color: var(--accent-color); }
+.admin-table-wrapper { overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.admin-th { background: var(--secondary-bg); color: var(--secondary-text); font-weight: 600; text-align: left; padding: 0.75rem 1rem; white-space: nowrap; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border-color); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-th:hover { color: var(--primary-text); }
+.admin-tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.admin-tr:hover { background: rgba(255,255,255,0.04); }
+.admin-td { padding: 0.7rem 1rem; color: var(--secondary-text); border-bottom: 1px solid rgba(255,255,255,0.04); white-space: nowrap; }
+.admin-td-name { color: var(--primary-text); font-weight: 500; }
+.admin-td-num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-tier-badge { font-size: 0.72rem; font-weight: 600; border: 1px solid; border-radius: 999px; padding: 0.15rem 0.6rem; }
+
+/* Plan Picker Modal */
+.plan-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+.plan-modal { background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 2rem; max-width: 700px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; }
+.plan-modal-close { position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: var(--muted-text); cursor: pointer; font-size: 1.1rem; }
+.plan-modal-close:hover { color: var(--primary-text); }
+.plan-modal-title { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.25rem; }
+.plan-modal-subtitle { text-align: center; color: var(--secondary-text); font-size: 0.9rem; margin-bottom: 1.5rem; }
+.plan-modal-error { color: #ef4444; font-size: 0.85rem; text-align: center; margin-bottom: 1rem; }
+.plan-modal-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 560px) { .plan-modal-cards { grid-template-columns: 1fr; } }
+.plan-modal-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; position: relative; }
+.plan-modal-card--popular { border-color: var(--accent-color); background: rgba(34,197,94,0.05); }
+.plan-modal-popular-badge { font-size: 0.7rem; font-weight: 700; color: var(--accent-color); background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); border-radius: 999px; padding: 0.15rem 0.6rem; width: fit-content; margin-bottom: 0.25rem; letter-spacing: 0.05em; }
+.plan-modal-plan-name { font-size: 1.1rem; font-weight: 700; color: var(--primary-text); }
+.plan-modal-plan-desc { font-size: 0.8rem; color: var(--secondary-text); }
+.plan-modal-price-row { display: flex; align-items: baseline; gap: 0.25rem; margin: 0.5rem 0; }
+.plan-modal-price { font-size: 1.75rem; font-weight: 800; color: var(--primary-text); }
+.plan-modal-period { font-size: 0.85rem; color: var(--secondary-text); }
+.plan-modal-features { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; margin-bottom: 1rem; }
+.plan-modal-feature-item { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.82rem; color: var(--secondary-text); }
+.plan-modal-cta { width: 100%; padding: 0.65rem; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; transition: var(--transition); }
+.plan-modal-cta--solid { background: var(--accent-color); color: #000; }
+.plan-modal-cta--solid:hover:not(:disabled) { background: var(--accent-hover); }
+.plan-modal-cta--outline { background: transparent; color: var(--primary-text); border: 1px solid var(--border-color); }
+.plan-modal-cta--outline:hover:not(:disabled) { border-color: var(--primary-text); }
+.plan-modal-cta:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Upgrade banner */
+.crush-upgrade-banner { display: flex; align-items: center; gap: 0.75rem; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--border-radius-sm); padding: 0.75rem 1rem; margin-bottom: 0.75rem; font-size: 0.875rem; color: var(--primary-text); flex-wrap: wrap; }
+.crush-upgrade-link { color: var(--accent-color); font-weight: 600; white-space: nowrap; }
+.crush-upgrade-link:hover { color: var(--accent-hover); }
+.crush-upgrade-dismiss { margin-left: auto; background: none; border: none; color: var(--muted-text); cursor: pointer; font-size: 0.9rem; padding: 0 0.25rem; }
+.crush-upgrade-dismiss:hover { color: var(--primary-text); }
 
 /* Input bar */
 .crush-input-bar { display: flex; align-items: center; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 28px; padding: 0.25rem 0.25rem 0.25rem 1.25rem; }

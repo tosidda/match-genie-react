@@ -80,7 +80,6 @@ export default function Crush() {
 
   const sendMessage = async (text) => {
     if (!text.trim() || streaming) return
-
     const isTeam = text === 'Team lineup and strategies' || text === 'Team lineup'
     const userMsg = { role: 'user', content: isTeam ? 'Help me create a team lineup and winning strategies for my tennis team.' : text }
     const newMessages = [...messages, userMsg]

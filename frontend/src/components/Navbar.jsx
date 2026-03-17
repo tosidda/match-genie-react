@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/client'
 import logo from '../assets/matchgenie.png'
-
 export default function Navbar() {
   const { user, logout, updateUser } = useAuth()
   const [showProfile, setShowProfile] = useState(false)
@@ -11,10 +10,14 @@ export default function Navbar() {
   const [lastName, setLastName] = useState('')
   const [location, setLocation] = useState('')
   const [utr, setUtr] = useState('')
+  const [email, setEmail] = useState('')
   const [picFile, setPicFile] = useState(null)
   const [picPreview, setPicPreview] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [emailPrompt, setEmailPrompt] = useState(false)
   const dropdownRef = useRef(null)
+  const emailInputRef = useRef(null)
 
   // Sync form fields when dropdown opens
   useEffect(() => {
@@ -23,9 +26,11 @@ export default function Navbar() {
       setLastName(user.last_name || '')
       setLocation(user.location || '')
       setUtr(user.utr || '')
+      setEmail(user.email || (user.is_google_user ? user.username : '') || '')
       setPicFile(null)
       setPicPreview(null)
     }
+    if (!showProfile) setEmailPrompt(false)
   }, [showProfile, user])
 
   // Close on outside click
@@ -49,12 +54,14 @@ export default function Navbar() {
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError('')
     try {
       const fd = new FormData()
       fd.append('first_name', firstName)
       fd.append('last_name', lastName)
       fd.append('location', location)
       fd.append('utr', utr)
+      fd.append('email', email)
       if (picFile) fd.append('profile_pic', picFile)
 
       const res = await api.put('/auth/profile', fd, {
@@ -62,8 +69,8 @@ export default function Navbar() {
       })
       updateUser(res.data)
       setShowProfile(false)
-    } catch {
-      // silently fail
+    } catch (err) {
+      setSaveError(err.response?.data?.error || 'Failed to save. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -111,6 +118,9 @@ export default function Navbar() {
         </NavLink>
       </div>
       <div className="navbar-user" ref={dropdownRef}>
+        <a href="https://www.matchgenie.ai" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Home</a>
+        <a href="https://www.matchgenie.ai/pricing" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Pricing</a>
+        <a href="https://www.matchgenie.ai/about" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">About</a>
         <button className="navbar-profile-btn" onClick={() => setShowProfile(!showProfile)}>
           {user?.profile_pic ? (
             <img src={`/api/auth/profile-pic/${user.profile_pic}`} alt="" className="profile-pic-navbar" />
@@ -119,7 +129,6 @@ export default function Navbar() {
           )}
           <span className="navbar-username">{displayName}</span>
         </button>
-        <a href="https://matchgenie.ai" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Website</a>
         <button onClick={logout} className="btn btn-outline btn-sm">Logout</button>
 
         {showProfile && (
@@ -149,6 +158,34 @@ export default function Navbar() {
               <label>UTR</label>
               <input type="text" value={utr} onChange={(e) => setUtr(e.target.value)} placeholder="e.g. 8.5" />
             </div>
+            <div className="profile-form-group">
+              <label>Email Address</label>
+              <input
+                ref={emailInputRef}
+                type="email"
+                value={email}
+                onChange={(e) => { if (!user?.is_google_user) { setEmail(e.target.value); setEmailPrompt(false) } }}
+                placeholder="your@email.com"
+                readOnly={!!user?.is_google_user}
+                style={{
+                  ...(emailPrompt ? { borderColor: '#f59e0b', boxShadow: '0 0 0 2px rgba(245,158,11,0.25)' } : {}),
+                  ...(user?.is_google_user ? { opacity: 0.6, cursor: 'not-allowed' } : {}),
+                }}
+              />
+              {user?.is_google_user && (
+                <p style={{ color: 'var(--muted-text)', fontSize: '0.78rem', marginTop: '0.35rem' }}>
+                  Email is managed by your Google account.
+                </p>
+              )}
+              {emailPrompt && !user?.is_google_user && (
+                <p style={{ color: '#f59e0b', fontSize: '0.78rem', marginTop: '0.35rem' }}>
+                  Please enter your email to upgrade your plan.
+                </p>
+              )}
+            </div>
+            {saveError && (
+              <p style={{ color: '#ef4444', fontSize: '0.8rem', marginBottom: '0.5rem' }}>{saveError}</p>
+            )}
             <div className="profile-dropdown-actions">
               <button className="btn btn-outline btn-sm" onClick={() => setShowProfile(false)}>Cancel</button>
               <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>

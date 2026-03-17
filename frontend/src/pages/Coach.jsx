@@ -72,7 +72,7 @@ export default function Coach() {
       setCoachFeedback(coachesRes.data.coaches || [])
       const sharers = sharedRes.data.sharer_usernames || []
       setSharerUsernames(sharers)
-      setIsCoach(sharers.length >= 2)
+      setIsCoach(sharers.length >= 1)
       setTrainingPlan(planRes.data.training_plan || null)
       setSharedMatchesCoach(sharedMatchesRes.data.as_coach || [])
       setSharedMatchesPlayer(sharedMatchesRes.data.as_player || [])
