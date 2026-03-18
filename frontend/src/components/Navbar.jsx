@@ -128,6 +128,7 @@ export default function Navbar() {
       </div>
       <div className="navbar-user" ref={dropdownRef}>
         <a href="https://www.matchgenie.ai" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Home</a>
+        <a href="https://www.matchgenie.ai/workflow" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">How it Works</a>
         <a href="https://www.matchgenie.ai/pricing" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Pricing</a>
         <a href="https://www.matchgenie.ai/about" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">About</a>
         <button className="navbar-profile-btn" onClick={() => setShowProfile(!showProfile)}>
