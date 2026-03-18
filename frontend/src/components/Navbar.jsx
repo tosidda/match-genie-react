@@ -3,16 +3,12 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/client'
 import logo from '../assets/matchgenie.png'
-import PlanPickerModal from './PlanPickerModal'
 
-const TIER_LABELS = { free: 'Free Trial', premium: 'Premium', coach: 'Coach' }
-const TIER_COLORS = { free: '#6b7280', premium: '#22c55e', coach: '#f59e0b' }
 const ADMIN_USERNAMES = ['sid']
 
 export default function Navbar() {
   const { user, logout, updateUser } = useAuth()
   const [showProfile, setShowProfile] = useState(false)
-  const [showPlanPicker, setShowPlanPicker] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [location, setLocation] = useState('')
@@ -40,18 +36,6 @@ export default function Navbar() {
     if (!showProfile) setEmailPrompt(false)
   }, [showProfile, user])
 
-  // Listen for custom events to open profile or plan picker
-  useEffect(() => {
-    const onOpenProfile = () => setShowProfile(true)
-    const onOpenPlanPicker = () => setShowPlanPicker(true)
-    window.addEventListener('openProfileDropdown', onOpenProfile)
-    window.addEventListener('openPlanPicker', onOpenPlanPicker)
-    return () => {
-      window.removeEventListener('openProfileDropdown', onOpenProfile)
-      window.removeEventListener('openPlanPicker', onOpenPlanPicker)
-    }
-  }, [])
-
   // Close on outside click
   useEffect(() => {
     if (!showProfile) return
@@ -69,16 +53,6 @@ export default function Navbar() {
     if (!file) return
     setPicFile(file)
     setPicPreview(URL.createObjectURL(file))
-  }
-
-  const handleUpgradeClick = () => {
-    if (!user?.email && !user?.is_google_user) {
-      setShowProfile(true)
-      setEmailPrompt(true)
-      setTimeout(() => emailInputRef.current?.focus(), 100)
-      return
-    }
-    setShowPlanPicker(true)
   }
 
   const handleSave = async () => {
@@ -108,12 +82,9 @@ export default function Navbar() {
   const displayName = user?.first_name || user?.username
   const profilePicUrl = picPreview || (user?.profile_pic ? `/api/auth/profile-pic/${user.profile_pic}` : null)
   const initial = (user?.first_name || user?.username || 'U').charAt(0).toUpperCase()
-
-  const tier = user?.subscription_tier || 'free'
   const isAdmin = ADMIN_USERNAMES.includes(user?.username?.toLowerCase())
 
   return (
-    <>
     <nav className="navbar">
       <div className="navbar-brand">
         <NavLink to="/">
@@ -157,17 +128,8 @@ export default function Navbar() {
       </div>
       <div className="navbar-user" ref={dropdownRef}>
         <a href="https://www.matchgenie.ai" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Home</a>
-        <a href="https://www.matchgenie.ai/workflow" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">How it Works</a>
         <a href="https://www.matchgenie.ai/pricing" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Pricing</a>
         <a href="https://www.matchgenie.ai/about" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">About</a>
-        <span className="navbar-tier-badge" style={{ backgroundColor: TIER_COLORS[tier] + '22', color: TIER_COLORS[tier], border: `1px solid ${TIER_COLORS[tier]}44`, borderRadius: '999px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.03em' }}>
-          {TIER_LABELS[tier] || tier}
-        </span>
-        {tier === 'free' && (
-          <button className="btn btn-primary btn-sm" onClick={handleUpgradeClick} style={{ fontWeight: 700 }}>
-            Upgrade
-          </button>
-        )}
         <button className="navbar-profile-btn" onClick={() => setShowProfile(!showProfile)}>
           {user?.profile_pic ? (
             <img src={`/api/auth/profile-pic/${user.profile_pic}`} alt="" className="profile-pic-navbar" />
@@ -243,7 +205,5 @@ export default function Navbar() {
         )}
       </div>
     </nav>
-    {showPlanPicker && <PlanPickerModal onClose={() => setShowPlanPicker(false)} />}
-    </>
   )
 }
