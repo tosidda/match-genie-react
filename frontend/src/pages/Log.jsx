@@ -75,6 +75,8 @@ export default function Log() {
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
   const autoRestartRef = useRef(false)
+  const audioContextRef = useRef(null)   // unlocked AudioContext for iOS TTS
+  const liveTranscriptRef = useRef('')   // avoids stale closure when stopping
 
   useEffect(() => {
     api.get('/matches').then((res) => {
@@ -100,6 +102,23 @@ export default function Log() {
     })
   }
 
+  // --- Unlock AudioContext on first user gesture (required by iOS) ---
+  const unlockAudio = () => {
+    if (audioContextRef.current) return
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      // Play a silent buffer to satisfy iOS autoplay policy
+      const buf = ctx.createBuffer(1, 1, 22050)
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.connect(ctx.destination)
+      src.start(0)
+      audioContextRef.current = ctx
+    } catch { /* ignore */ }
+  }
+
   // --- TTS: Speak text aloud using OpenAI TTS ---
   const speakText = async (text) => {
     setSpeaking(true)
@@ -114,21 +133,35 @@ export default function Log() {
         body: JSON.stringify({ text }),
       })
 
-      if (!response.ok) {
-        setSpeaking(false)
-        return
+      if (!response.ok) { setSpeaking(false); return }
+
+      const arrayBuffer = await response.arrayBuffer()
+      const ctx = audioContextRef.current
+
+      if (ctx) {
+        // iOS path: play through the already-unlocked AudioContext
+        if (ctx.state === 'suspended') await ctx.resume()
+        const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
+        await new Promise((resolve) => {
+          const source = ctx.createBufferSource()
+          source.buffer = decoded
+          source.connect(ctx.destination)
+          source.onended = resolve
+          source.start(0)
+          audioRef.current = source
+        })
+      } else {
+        // Desktop fallback
+        const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' })
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        audioRef.current = audio
+        await new Promise((resolve) => {
+          audio.onended = () => { URL.revokeObjectURL(url); resolve() }
+          audio.onerror = () => { URL.revokeObjectURL(url); resolve() }
+          audio.play().catch(resolve)
+        })
       }
-
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const audio = new Audio(url)
-      audioRef.current = audio
-
-      await new Promise((resolve) => {
-        audio.onended = () => { URL.revokeObjectURL(url); resolve() }
-        audio.onerror = () => { URL.revokeObjectURL(url); resolve() }
-        audio.play()
-      })
     } catch {
       // TTS failed silently — text is still shown on screen
     } finally {
@@ -144,14 +177,16 @@ export default function Log() {
       return
     }
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
     const recognition = new SpeechRecognition()
-    recognition.continuous = !isIOS  // iOS ignores continuous=true
-    recognition.interimResults = true
+    recognition.continuous = !isIOS   // iOS silently ignores continuous=true
+    recognition.interimResults = !isIOS  // interim results cause issues on iOS
     recognition.lang = 'en-US'
     recognitionRef.current = recognition
     autoRestartRef.current = true
+    liveTranscriptRef.current = ''
 
     let finalTranscript = ''
 
@@ -164,25 +199,34 @@ export default function Log() {
           interim += event.results[i][0].transcript
         }
       }
-      setLiveTranscript(finalTranscript + interim)
+      const combined = finalTranscript + interim
+      liveTranscriptRef.current = combined
+      setLiveTranscript(combined)
     }
 
     recognition.onerror = (event) => {
-      // On iOS, 'no-speech' is common — restart instead of stopping
-      if (isIOS && autoRestartRef.current && event.error === 'no-speech') return
+      if (event.error === 'aborted') return  // expected when we call .stop()
+      if (event.error === 'no-speech') {
+        // Restart on iOS instead of dying silently
+        if (autoRestartRef.current) {
+          try { recognition.start() } catch { }
+        }
+        return
+      }
       autoRestartRef.current = false
       setListening(false)
     }
 
     recognition.onend = () => {
-      // On iOS, auto-restart to simulate continuous listening
-      if (isIOS && autoRestartRef.current) {
+      // iOS ends after every utterance — restart to keep listening
+      if (autoRestartRef.current) {
         try { recognition.start() } catch { }
       } else {
         setListening(false)
       }
     }
 
+    liveTranscriptRef.current = ''
     setLiveTranscript('')
     setListening(true)
     recognition.start()
@@ -190,25 +234,23 @@ export default function Log() {
 
   const stopListeningAndSend = () => {
     autoRestartRef.current = false
+    // Grab transcript from ref before anything async can clear it
+    const transcript = liveTranscriptRef.current
+    liveTranscriptRef.current = ''
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
     }
     setListening(false)
-
-    // Use liveTranscript captured so far
-    setTimeout(() => {
-      setLiveTranscript((transcript) => {
-        if (transcript.trim()) {
-          sendVoiceMessage(transcript.trim())
-        }
-        return ''
-      })
-    }, 200)
+    setLiveTranscript('')
+    if (transcript.trim()) {
+      sendVoiceMessage(transcript.trim())
+    }
   }
 
   // --- Voice Mode Functions ---
   const activateVoiceMode = async () => {
+    unlockAudio()  // must happen in the user gesture context
     const rawName = user?.first_name || user?.username || ''
     const displayName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : ''
     const greeting = `Hey${displayName ? ' ' + displayName : ''}! Let's log your match. Tell me about the basics. When did you play, what surface, and did you win or lose? What was the score?`
@@ -223,7 +265,14 @@ export default function Log() {
 
   const exitVoiceMode = () => {
     autoRestartRef.current = false
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    if (audioRef.current) {
+      try { audioRef.current.stop?.(); audioRef.current.pause?.() } catch {}
+      audioRef.current = null
+    }
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close() } catch {}
+      audioContextRef.current = null
+    }
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
@@ -1005,7 +1054,7 @@ export default function Log() {
 
           <button
             className={`voice-mic-btn ${listening ? 'voice-mic-active' : ''}`}
-            onClick={listening ? stopListeningAndSend : startListening}
+            onClick={listening ? stopListeningAndSend : () => { unlockAudio(); startListening() }}
             disabled={isBusy}
           >
             {listening ? (
