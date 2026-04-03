@@ -71,6 +71,7 @@ export default function Log() {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [liveTranscript, setLiveTranscript] = useState('')
+  const [micBlocked, setMicBlocked] = useState(false)
   const voiceEndRef = useRef(null)
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
@@ -216,11 +217,14 @@ export default function Log() {
     recognition.onerror = (event) => {
       if (event.error === 'aborted') return  // expected when we call .stop()
       if (event.error === 'no-speech') {
-        // Restart on iOS instead of dying silently
         if (autoRestartRef.current) {
           try { recognition.start() } catch { }
         }
         return
+      }
+      // not-allowed / service-not-available = browser won't support mic (e.g. Chrome iOS)
+      if (event.error === 'not-allowed' || event.error === 'service-not-available' || event.error === 'audio-capture') {
+        setMicBlocked(true)
       }
       autoRestartRef.current = false
       setListening(false)
@@ -297,6 +301,7 @@ export default function Log() {
     setListening(false)
     setSpeaking(false)
     setLiveTranscript('')
+    setMicBlocked(false)
   }
 
   const sendVoiceMessage = async (text) => {
@@ -1025,9 +1030,8 @@ export default function Log() {
   const VoiceChatUI = () => {
     const isBusy = voiceStreaming || speaking
     const lastAssistant = [...voiceMessages].reverse().find((m) => m.role === 'assistant')
-    // Chrome iOS always has 'CriOS' in UA — it uses WebKit but never exposes SpeechRecognition
     const isChromeiOS = /CriOS/.test(navigator.userAgent)
-    const hasMic = !isChromeiOS && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+    const hasMic = !micBlocked && !isChromeiOS && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
     return (
       <div className="voice-mode-container">
