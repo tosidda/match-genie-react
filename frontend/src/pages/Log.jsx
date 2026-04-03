@@ -102,20 +102,23 @@ export default function Log() {
     })
   }
 
-  // --- Unlock AudioContext on first user gesture (required by iOS) ---
-  const unlockAudio = () => {
-    if (audioContextRef.current) return
+  // --- Unlock AudioContext on first user gesture (required by iOS/Chrome) ---
+  const unlockAudio = async () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext
       if (!AudioCtx) return
-      const ctx = new AudioCtx()
-      // Play a silent buffer to satisfy iOS autoplay policy
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioCtx()
+      }
+      const ctx = audioContextRef.current
+      // Must resume() — Chrome iOS starts contexts in suspended state
+      if (ctx.state === 'suspended') await ctx.resume()
+      // Play silent buffer to fully satisfy autoplay policy
       const buf = ctx.createBuffer(1, 1, 22050)
       const src = ctx.createBufferSource()
       src.buffer = buf
       src.connect(ctx.destination)
       src.start(0)
-      audioContextRef.current = ctx
     } catch { /* ignore */ }
   }
 
@@ -137,21 +140,27 @@ export default function Log() {
 
       const arrayBuffer = await response.arrayBuffer()
       const ctx = audioContextRef.current
+      let played = false
 
-      if (ctx) {
-        // iOS path: play through the already-unlocked AudioContext
-        if (ctx.state === 'suspended') await ctx.resume()
-        const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
-        await new Promise((resolve) => {
-          const source = ctx.createBufferSource()
-          source.buffer = decoded
-          source.connect(ctx.destination)
-          source.onended = resolve
-          source.start(0)
-          audioRef.current = source
-        })
-      } else {
-        // Desktop fallback
+      // Try AudioContext path first (works on iOS Safari + Chrome iOS after unlock)
+      if (ctx && ctx.state !== 'closed') {
+        try {
+          if (ctx.state === 'suspended') await ctx.resume()
+          const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
+          await new Promise((resolve) => {
+            const source = ctx.createBufferSource()
+            source.buffer = decoded
+            source.connect(ctx.destination)
+            source.onended = resolve
+            source.start(0)
+            audioRef.current = source
+          })
+          played = true
+        } catch { /* fall through to Audio element */ }
+      }
+
+      // Fallback: HTMLAudioElement (desktop, and any mobile that blocked AudioContext)
+      if (!played) {
         const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' })
         const url = URL.createObjectURL(blob)
         const audio = new Audio(url)
@@ -250,7 +259,7 @@ export default function Log() {
 
   // --- Voice Mode Functions ---
   const activateVoiceMode = async () => {
-    unlockAudio()  // must happen in the user gesture context
+    await unlockAudio()  // must happen in the user gesture context and be awaited
     const rawName = user?.first_name || user?.username || ''
     const displayName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : ''
     const greeting = `Hey${displayName ? ' ' + displayName : ''}! Let's log your match. Tell me about the basics. When did you play, what surface, and did you win or lose? What was the score?`
@@ -1016,7 +1025,9 @@ export default function Log() {
   const VoiceChatUI = () => {
     const isBusy = voiceStreaming || speaking
     const lastAssistant = [...voiceMessages].reverse().find((m) => m.role === 'assistant')
-    const hasMic = !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+    // Chrome iOS always has 'CriOS' in UA — it uses WebKit but never exposes SpeechRecognition
+    const isChromeiOS = /CriOS/.test(navigator.userAgent)
+    const hasMic = !isChromeiOS && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
     return (
       <div className="voice-mode-container">
@@ -1056,7 +1067,7 @@ export default function Log() {
               )}
               <button
                 className={`voice-mic-btn ${listening ? 'voice-mic-active' : ''}`}
-                onClick={listening ? stopListeningAndSend : () => { unlockAudio(); startListening() }}
+                onClick={listening ? stopListeningAndSend : async () => { await unlockAudio(); startListening() }}
                 disabled={isBusy}
               >
                 {listening ? (
