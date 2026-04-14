@@ -155,6 +155,25 @@ def voice_tts():
         return jsonify({"error": str(e)}), 500
 
 
+@voice_log_bp.route("/transcribe", methods=["POST"])
+@jwt_required()
+def voice_transcribe():
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file"}), 400
+
+    audio_file = request.files["audio"]
+
+    try:
+        client = OpenAI(api_key=get_openai_key())
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+        )
+        return jsonify({"transcript": transcript.text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @voice_log_bp.route("/extract", methods=["POST"])
 @jwt_required()
 def voice_extract():

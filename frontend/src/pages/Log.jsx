@@ -72,12 +72,16 @@ export default function Log() {
   const [speaking, setSpeaking] = useState(false)
   const [liveTranscript, setLiveTranscript] = useState('')
   const [micBlocked, setMicBlocked] = useState(false)
+  const [mediaRecording, setMediaRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
   const voiceEndRef = useRef(null)
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
   const autoRestartRef = useRef(false)
   const audioContextRef = useRef(null)   // unlocked AudioContext for iOS TTS
   const liveTranscriptRef = useRef('')   // avoids stale closure when stopping
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
 
   useEffect(() => {
     api.get('/matches').then((res) => {
@@ -270,6 +274,64 @@ export default function Log() {
     }
   }
 
+  // --- MediaRecorder STT (fallback for Chrome iOS and other browsers without Web Speech API) ---
+  const startMediaRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+        : ''
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {})
+      audioChunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setMediaRecording(true)
+    } catch {
+      setMicBlocked(true)
+    }
+  }
+
+  const stopMediaRecordingAndTranscribe = async () => {
+    const recorder = mediaRecorderRef.current
+    if (!recorder) return
+    setMediaRecording(false)
+    setTranscribing(true)
+
+    await new Promise((resolve) => {
+      recorder.onstop = resolve
+      recorder.stop()
+      recorder.stream.getTracks().forEach((t) => t.stop())
+    })
+    mediaRecorderRef.current = null
+
+    const mimeType = audioChunksRef.current[0]?.type || 'audio/mp4'
+    const blob = new Blob(audioChunksRef.current, { type: mimeType })
+    audioChunksRef.current = []
+
+    try {
+      const token = localStorage.getItem('token')
+      const formData = new FormData()
+      const ext = mimeType.includes('webm') ? 'webm' : 'mp4'
+      formData.append('audio', blob, `recording.${ext}`)
+      const res = await fetch('/api/voice-log/transcribe', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.transcript?.trim()) {
+        sendVoiceMessage(data.transcript.trim())
+      }
+    } catch {
+      // transcription failed — user can type in the fallback input
+    } finally {
+      setTranscribing(false)
+    }
+  }
+
   // --- Voice Mode Functions ---
   const activateVoiceMode = async () => {
     await unlockAudio()  // must happen in the user gesture context and be awaited
@@ -299,6 +361,14 @@ export default function Log() {
       recognitionRef.current.stop()
       recognitionRef.current = null
     }
+    if (mediaRecorderRef.current) {
+      try {
+        mediaRecorderRef.current.stream?.getTracks().forEach((t) => t.stop())
+        mediaRecorderRef.current.stop()
+      } catch {}
+      mediaRecorderRef.current = null
+    }
+    audioChunksRef.current = []
     if (voiceMessages.length > 1 && !confirm('Exit voice mode? Your conversation will be lost.')) return
     setVoiceMode(false)
     setVoiceMessages([])
@@ -311,6 +381,8 @@ export default function Log() {
     setSpeaking(false)
     setLiveTranscript('')
     setMicBlocked(false)
+    setMediaRecording(false)
+    setTranscribing(false)
   }
 
   const sendVoiceMessage = async (text) => {
@@ -1037,14 +1109,19 @@ export default function Log() {
 
   // --- Voice Mode: Chat UI ---
   const VoiceChatUI = () => {
-    const isBusy = voiceStreaming || speaking
+    const isBusy = voiceStreaming || speaking || transcribing
     const lastAssistant = [...voiceMessages].reverse().find((m) => m.role === 'assistant')
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
     const isNonSafariIOS = isIOS && (/CriOS|FxiOS|OPiOS/.test(navigator.userAgent) ||
       (!!window.chrome) ||
       (/Chrome/.test(navigator.userAgent) && !/Safari/.test(navigator.userAgent)))
-    const hasMic = !micBlocked && !isNonSafariIOS && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+    // Native Web Speech API path (Safari, desktop Chrome/Firefox)
+    const hasNativeSpeech = !micBlocked && !isNonSafariIOS && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+    // MediaRecorder + Whisper fallback (Chrome iOS, any browser without Web Speech API)
+    const hasMediaRecorder = !micBlocked && !!(navigator.mediaDevices?.getUserMedia) && !!(window.MediaRecorder)
+    const hasMic = hasNativeSpeech || hasMediaRecorder
+    const isRecording = listening || mediaRecording
 
     return (
       <div className="voice-mode-container">
@@ -1055,7 +1132,7 @@ export default function Log() {
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {voiceMessages.length >= 4 && (
-              <button className="btn btn-primary" onClick={extractAndReview} disabled={isBusy || listening || extracting}>
+              <button className="btn btn-primary" onClick={extractAndReview} disabled={isBusy || listening || mediaRecording || extracting}>
                 {extracting ? 'Extracting...' : 'Review & Submit'}
               </button>
             )}
@@ -1083,25 +1160,31 @@ export default function Log() {
                 <div className="voice-live-transcript">{liveTranscript}</div>
               )}
               <button
-                className={`voice-mic-btn ${listening ? 'voice-mic-active' : ''}`}
-                onClick={listening ? stopListeningAndSend : async () => { await unlockAudio(); startListening() }}
-                disabled={isBusy}
+                className={`voice-mic-btn ${isRecording ? 'voice-mic-active' : ''}`}
+                onClick={() => {
+                  if (hasNativeSpeech) {
+                    listening ? stopListeningAndSend() : unlockAudio().then(() => startListening())
+                  } else {
+                    mediaRecording ? stopMediaRecordingAndTranscribe() : startMediaRecording()
+                  }
+                }}
+                disabled={isBusy && !isRecording}
               >
-                {listening ? (
+                {isRecording ? (
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                 ) : (
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                 )}
               </button>
               <div className="voice-mic-label">
-                {isBusy ? 'AI is responding...' : listening ? 'Listening — tap to send' : 'Tap to speak'}
+                {transcribing ? 'Transcribing...' : isBusy ? 'AI is responding...' : listening ? 'Listening — tap to send' : mediaRecording ? 'Recording — tap to send' : 'Tap to speak'}
               </div>
             </>
           ) : (
             <div className="voice-no-mic">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style={{ opacity: 0.4 }}><path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/></svg>
               <p className="voice-no-mic-title">Microphone unavailable</p>
-              <p className="voice-no-mic-sub">On iPhone/iPad, voice mode only works in Safari.<br/>Use the text box below, or open this page in Safari for full voice mode.</p>
+              <p className="voice-no-mic-sub">Voice mode requires microphone access.<br/>Please allow microphone permissions and try again.</p>
             </div>
           )}
         </div>
