@@ -324,9 +324,11 @@ export default function Log() {
       const data = await res.json()
       if (data.transcript?.trim()) {
         sendVoiceMessage(data.transcript.trim())
+      } else {
+        setVoiceMessages((prev) => [...prev, { role: 'assistant', content: "Sorry, I couldn't hear that. Please try again or type your response below." }])
       }
     } catch {
-      // transcription failed — user can type in the fallback input
+      setVoiceMessages((prev) => [...prev, { role: 'assistant', content: "Transcription failed. Please try again or type your response below." }])
     } finally {
       setTranscribing(false)
     }

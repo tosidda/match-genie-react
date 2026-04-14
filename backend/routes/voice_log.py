@@ -162,12 +162,21 @@ def voice_transcribe():
         return jsonify({"error": "No audio file"}), 400
 
     audio_file = request.files["audio"]
+    audio_bytes = audio_file.read()
+
+    if not audio_bytes:
+        return jsonify({"error": "Empty audio"}), 400
+
+    filename = audio_file.filename or "recording.mp4"
+    content_type = audio_file.content_type or "audio/mp4"
 
     try:
         client = OpenAI(api_key=get_openai_key())
+        # Pass as explicit tuple so Whisper gets the filename (for format detection)
+        # and content type — passing FileStorage directly doesn't work reliably
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
-            file=audio_file,
+            file=(filename, audio_bytes, content_type),
         )
         return jsonify({"transcript": transcript.text})
     except Exception as e:
