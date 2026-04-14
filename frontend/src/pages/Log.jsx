@@ -190,6 +190,16 @@ export default function Log() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
+    // On iOS, only Safari supports Web Speech API — Chrome (CriOS or desktop UA),
+    // Firefox (FxiOS), and other browsers fail silently without a mic permission prompt.
+    const isNonSafariIOS = isIOS && (/CriOS|FxiOS|OPiOS/.test(navigator.userAgent) ||
+      (!!window.chrome) ||
+      (/Chrome/.test(navigator.userAgent) && !/Safari/.test(navigator.userAgent)))
+    if (isNonSafariIOS) {
+      setMicBlocked(true)
+      return
+    }
+
     const recognition = new SpeechRecognition()
     recognition.continuous = !isIOS   // iOS silently ignores continuous=true
     recognition.interimResults = !isIOS  // interim results cause issues on iOS
@@ -222,10 +232,9 @@ export default function Log() {
         }
         return
       }
-      // not-allowed / service-not-available = browser won't support mic (e.g. Chrome iOS)
-      if (event.error === 'not-allowed' || event.error === 'service-not-available' || event.error === 'audio-capture') {
-        setMicBlocked(true)
-      }
+      // Any error other than no-speech/aborted means mic isn't usable in this browser.
+      // 'network' is the typical error on Chrome iOS (Google STT unreachable via WebKit).
+      setMicBlocked(true)
       autoRestartRef.current = false
       setListening(false)
     }
@@ -1030,8 +1039,12 @@ export default function Log() {
   const VoiceChatUI = () => {
     const isBusy = voiceStreaming || speaking
     const lastAssistant = [...voiceMessages].reverse().find((m) => m.role === 'assistant')
-    const isChromeiOS = /CriOS/.test(navigator.userAgent)
-    const hasMic = !micBlocked && !isChromeiOS && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    const isNonSafariIOS = isIOS && (/CriOS|FxiOS|OPiOS/.test(navigator.userAgent) ||
+      (!!window.chrome) ||
+      (/Chrome/.test(navigator.userAgent) && !/Safari/.test(navigator.userAgent)))
+    const hasMic = !micBlocked && !isNonSafariIOS && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
     return (
       <div className="voice-mode-container">
@@ -1087,8 +1100,8 @@ export default function Log() {
           ) : (
             <div className="voice-no-mic">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style={{ opacity: 0.4 }}><path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/></svg>
-              <p className="voice-no-mic-title">Microphone unavailable in Chrome</p>
-              <p className="voice-no-mic-sub">Apple restricts mic access to Safari on iOS.<br/>Use the text box below, or switch to Safari for full voice mode.</p>
+              <p className="voice-no-mic-title">Microphone unavailable</p>
+              <p className="voice-no-mic-sub">On iPhone/iPad, voice mode only works in Safari.<br/>Use the text box below, or open this page in Safari for full voice mode.</p>
             </div>
           )}
         </div>
