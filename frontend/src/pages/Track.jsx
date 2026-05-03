@@ -60,6 +60,7 @@ export default function Track() {
   const [codeInput, setCodeInput] = useState('')
   const [codeError, setCodeError] = useState('')
   const [generatedCode, setGeneratedCode] = useState(null) // {code, expiresAt}
+  const [activePanel, setActivePanel] = useState(null) // 'enter' | 'generate' | null
 
   useEffect(() => {
     setP1Name(trackingFor ? trackingFor.playerName : (user?.first_name || user?.username || ''))
@@ -402,43 +403,70 @@ export default function Track() {
   if (phase === 'setup') {
     return (
       <div className="track-page">
-        <h1>Live Tracker</h1>
-        <h2>Match Setup</h2>
-        {/* Tracking for another player banner */}
-        {trackingFor ? (
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+          <h1 style={{ margin: 0 }}>Live Tracker</h1>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button
+                className={`btn btn-sm ${activePanel === 'enter' ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setActivePanel((p) => p === 'enter' ? null : 'enter')}
+              >Enter Code</button>
+              <button
+                className={`btn btn-sm ${activePanel === 'generate' ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => { setActivePanel((p) => p === 'generate' ? null : 'generate'); if (activePanel !== 'generate') handleGenerateCode() }}
+              >Generate Code</button>
+            </div>
+            <span style={{ fontSize: '0.65rem', color: 'var(--muted-text)', textAlign: 'center', width: '100%' }}>If you want to track other player match</span>
+          </div>
+        </div>
+
+        {/* Enter code panel */}
+        {activePanel === 'enter' && !trackingFor && (
+          <div style={{ background: 'var(--card-bg, #1a1a2e)', border: '1px solid var(--border-color, #2a2a3e)', borderRadius: '10px', padding: '1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '160px' }}>
+              <label style={{ fontSize: '0.78rem', color: 'var(--muted-text)', display: 'block', marginBottom: '0.4rem' }}>Enter tracking code from the player</label>
+              <input
+                type="text"
+                placeholder="e.g. K8ZCME"
+                value={codeInput}
+                onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeError('') }}
+                style={{ width: '100%', textTransform: 'uppercase', letterSpacing: '0.15em', boxSizing: 'border-box' }}
+                maxLength={6}
+                autoFocus
+              />
+              {codeError && <p style={{ color: '#ef4444', fontSize: '0.75rem', margin: '0.35rem 0 0' }}>{codeError}</p>}
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={handleEnterCode}>Track for Player</button>
+          </div>
+        )}
+
+        {/* Generate code panel */}
+        {activePanel === 'generate' && (
+          <div style={{ background: 'var(--card-bg, #1a1a2e)', border: '1px solid var(--border-color, #2a2a3e)', borderRadius: '10px', padding: '1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--muted-text)', marginBottom: '0.25rem' }}>Share this code with a parent or friend so they can track your match live.</div>
+            </div>
+            {generatedCode ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '1.75rem', fontWeight: 700, letterSpacing: '0.25em', color: '#f5c518' }}>{generatedCode.code}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--muted-text)' }}>valid 24h</span>
+              </div>
+            ) : (
+              <button className="btn btn-outline btn-sm" onClick={handleGenerateCode}>Generate Code</button>
+            )}
+          </div>
+        )}
+
+        {/* Tracking for banner */}
+        {trackingFor && (
           <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid #22c55e', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ color: '#22c55e', fontWeight: 600 }}>Tracking for: {trackingFor.playerName}</span>
             <button className="btn btn-outline btn-sm" onClick={() => setTrackingFor(null)}>Cancel</button>
           </div>
-        ) : (
-          <div style={{ marginBottom: '1.25rem' }}>
-            {/* Enter a code */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <input
-                type="text"
-                placeholder="Enter tracking code"
-                value={codeInput}
-                onChange={(e) => { setCodeInput(e.target.value.toUpperCase()); setCodeError('') }}
-                style={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                maxLength={6}
-              />
-              <button className="btn btn-primary btn-sm" onClick={handleEnterCode}>Track for Player</button>
-            </div>
-            {codeError && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0 0 0.5rem' }}>{codeError}</p>}
-            {/* Generate a code */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button className="btn btn-outline btn-sm" onClick={handleGenerateCode}>Generate code for parent/friend</button>
-              {generatedCode && (
-                <span style={{ fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.15em', color: '#f5c518' }}>
-                  {generatedCode.code}
-                  <span style={{ fontSize: '0.7rem', color: 'var(--muted-text)', fontWeight: 400, marginLeft: '0.5rem', letterSpacing: 'normal' }}>
-                    (valid 24h)
-                  </span>
-                </span>
-              )}
-            </div>
-          </div>
         )}
+
+        <h2>Match Setup</h2>
         <div className="form-row">
           <div className="form-group"><label>You</label><input value={p1Name} readOnly style={{ opacity: 0.7, cursor: 'default' }} /></div>
           <div className="form-group">
