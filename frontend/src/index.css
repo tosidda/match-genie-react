@@ -56,6 +56,9 @@ a:hover { color: var(--accent-hover); }
 .nav-link { padding: 0.5rem 1rem; border-radius: var(--border-radius-sm); color: var(--secondary-text); font-weight: 500; transition: var(--transition); display: flex; flex-direction: column; align-items: center; gap: 0.2rem; font-size: 0.75rem; }
 .nav-link:hover { background: rgba(255,255,255,0.05); color: var(--primary-text); }
 .nav-link.active { font-weight: 600; }
+.nav-item { position: relative; }
+.nav-tooltip { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--secondary-bg); border: 1px solid var(--border-color); color: var(--secondary-text); font-size: 0.7rem; white-space: nowrap; padding: 0.3rem 0.6rem; border-radius: var(--border-radius-sm); pointer-events: none; opacity: 0; transition: opacity 0.15s ease; z-index: 100; }
+.nav-item:hover .nav-tooltip { opacity: 1; }
 
 .nav-log:hover, .nav-log.active { color: #10b981; background: rgba(16, 185, 129, 0.15); }
 .nav-log.active { border: 1px solid rgba(16, 185, 129, 0.3); }
