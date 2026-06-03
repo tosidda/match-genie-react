@@ -417,7 +417,9 @@ export default function Track() {
                 onClick={() => { setActivePanel((p) => p === 'generate' ? null : 'generate'); if (activePanel !== 'generate') handleGenerateCode() }}
               >Generate Code</button>
             </div>
-            <span style={{ fontSize: '0.65rem', color: 'var(--muted-text)', textAlign: 'center', width: '100%' }}>Enter code to track other player match. Generate code to have someone track for you.</span>
+            <span style={{ fontSize: '0.65rem', color: 'var(--muted-text)', textAlign: 'center', width: '100%' }}>
+              Enter code to track other player match.<br />Generate code to have someone track for you.
+            </span>
           </div>
         </div>
 
