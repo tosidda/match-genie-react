@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/client'
 
@@ -15,6 +15,27 @@ export default function Admin() {
   const [sortKey, setSortKey] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
   const [search, setSearch] = useState('')
+  const topScrollRef = useRef(null)
+  const tableWrapperRef = useRef(null)
+
+  const handleTopScroll = () => {
+    if (tableWrapperRef.current) tableWrapperRef.current.scrollLeft = topScrollRef.current.scrollLeft
+  }
+  const handleBottomScroll = () => {
+    if (topScrollRef.current) topScrollRef.current.scrollLeft = tableWrapperRef.current.scrollLeft
+  }
+
+  useEffect(() => {
+    const syncWidth = () => {
+      if (tableWrapperRef.current && topScrollRef.current) {
+        const inner = topScrollRef.current.querySelector('.admin-table-scroll-top-inner')
+        if (inner) inner.style.width = tableWrapperRef.current.scrollWidth + 'px'
+      }
+    }
+    syncWidth()
+    window.addEventListener('resize', syncWidth)
+    return () => window.removeEventListener('resize', syncWidth)
+  }, [users])
 
   useEffect(() => {
     api.get('/admin/users')
@@ -56,6 +77,7 @@ export default function Admin() {
     matches: users.reduce((s, u) => s + (u.match_count || 0), 0),
     prompts: users.reduce((s, u) => s + u.prompt_count, 0),
     tokens: users.reduce((s, u) => s + u.token_count, 0),
+    equityPlayers: users.filter((u) => u.is_equity_player).length,
   }
 
   const SortArrow = ({ k }) => (
@@ -102,6 +124,37 @@ export default function Admin() {
         </div>
       </div>
 
+      {/* Equity Player Tracker */}
+      <div className="admin-equity-section">
+        <h2 className="admin-section-title">Equity Player Tracker</h2>
+        <div className="admin-summary">
+          <div className="admin-summary-card admin-equity-card">
+            <div className="admin-summary-value" style={{ color: '#f5c518' }}>{totals.equityPlayers}</div>
+            <div className="admin-summary-label">Equity Players</div>
+          </div>
+          <div className="admin-summary-card admin-equity-card">
+            <div className="admin-summary-value" style={{ color: totals.equityPlayers >= 500 ? '#ef4444' : '#22c55e' }}>
+              {500 - totals.equityPlayers}
+            </div>
+            <div className="admin-summary-label">Spots Remaining</div>
+          </div>
+          <div className="admin-summary-card admin-equity-card">
+            <div className="admin-summary-value">{totals.equityPlayers} / 500</div>
+            <div className="admin-summary-label">of 500 Target</div>
+          </div>
+          <div className="admin-summary-card admin-equity-card">
+            <div className="admin-summary-value" style={{ color: '#f5c518' }}>
+              {((totals.equityPlayers / 500) * 100).toFixed(1)}%
+            </div>
+            <div className="admin-summary-label">Filled</div>
+          </div>
+          <div className="admin-summary-card admin-equity-card">
+            <div className="admin-summary-value" style={{ color: '#a78bfa' }}>0.02%</div>
+            <div className="admin-summary-label">Equity per Spot</div>
+          </div>
+        </div>
+      </div>
+
       {/* Search */}
       <input
         className="admin-search"
@@ -112,7 +165,10 @@ export default function Admin() {
       />
 
       {/* Table */}
-      <div className="admin-table-wrapper">
+      <div className="admin-table-scroll-top" ref={topScrollRef} onScroll={handleTopScroll}>
+        <div className="admin-table-scroll-top-inner" />
+      </div>
+      <div className="admin-table-wrapper" ref={tableWrapperRef} onScroll={handleBottomScroll}>
         <table className="admin-table">
           <thead>
             <tr>

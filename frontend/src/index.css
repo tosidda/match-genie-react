@@ -544,7 +544,20 @@ a:hover { color: var(--accent-hover); }
 .admin-summary-label { font-size: 0.75rem; color: var(--muted-text); margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .admin-search { width: 100%; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); color: var(--primary-text); padding: 0.65rem 1rem; font-size: 0.9rem; margin-bottom: 1rem; outline: none; }
 .admin-search:focus { border-color: var(--accent-color); }
-.admin-table-wrapper { overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); }
+.admin-equity-section { margin-bottom: 1.5rem; }
+.admin-section-title { font-size: 0.8rem; font-weight: 600; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.75rem; }
+.admin-equity-card { border-color: rgba(245, 197, 24, 0.25) !important; }
+.admin-table-scroll-top { overflow-x: scroll; overflow-y: hidden; border: 1px solid var(--border-color); border-bottom: none; border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0; }
+.admin-table-scroll-top::-webkit-scrollbar { height: 6px; }
+.admin-table-scroll-top::-webkit-scrollbar-track { background: var(--secondary-bg); }
+.admin-table-scroll-top::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+.admin-table-scroll-top::-webkit-scrollbar-thumb:hover { background: var(--secondary-text); }
+.admin-table-scroll-top-inner { height: 1px; }
+.admin-table-wrapper { overflow-x: scroll; border: 1px solid var(--border-color); border-radius: 0 0 var(--border-radius-sm) var(--border-radius-sm); }
+.admin-table-wrapper::-webkit-scrollbar { height: 6px; }
+.admin-table-wrapper::-webkit-scrollbar-track { background: var(--secondary-bg); border-radius: 0 0 var(--border-radius-sm) var(--border-radius-sm); }
+.admin-table-wrapper::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+.admin-table-wrapper::-webkit-scrollbar-thumb:hover { background: var(--secondary-text); }
 .admin-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .admin-th { background: var(--secondary-bg); color: var(--secondary-text); font-weight: 600; text-align: left; padding: 0.75rem 1rem; white-space: nowrap; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border-color); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .admin-th:hover { color: var(--primary-text); }
@@ -790,6 +803,28 @@ a:hover { color: var(--accent-hover); }
 .stats-table-header { font-weight: 600; border-bottom: 2px solid var(--border-color); margin-bottom: 0.5rem; }
 .stats-table-row { border-bottom: 1px solid var(--border-color); color: var(--secondary-text); }
 
+/* Voice Tracker */
+.voice-mic-panel { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 1.5rem; background: var(--card-bg, #111); border: 1px solid var(--border-color); border-radius: var(--border-radius); margin: 1rem 0; }
+.voice-mic-btn { width: 72px; height: 72px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; background: rgba(236,72,153,0.15); color: #ec4899; border: 2px solid rgba(236,72,153,0.4); transition: var(--transition); position: relative; }
+.voice-mic-btn:hover { background: rgba(236,72,153,0.25); }
+.voice-mic-btn.listening { background: rgba(236,72,153,0.2); border-color: #ec4899; animation: mic-pulse 1.6s ease-in-out infinite; }
+@keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(236,72,153,0.4); } 50% { box-shadow: 0 0 0 14px rgba(236,72,153,0); } }
+.voice-mic-status { font-size: 0.75rem; color: var(--muted-text); letter-spacing: 0.05em; }
+.voice-live-transcript { font-size: 0.85rem; color: var(--secondary-text); font-style: italic; text-align: center; max-width: 360px; min-height: 1.2em; }
+.voice-feedback { font-size: 0.82rem; font-weight: 600; padding: 0.3rem 0.75rem; border-radius: 999px; }
+.voice-feedback-success { background: rgba(16,185,129,0.15); color: #10b981; }
+.voice-feedback-note { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.voice-prompt { font-size: 0.75rem; color: var(--muted-text); text-align: center; max-width: 380px; line-height: 1.5; }
+.voice-notes-panel { margin: 0.5rem 0 1rem; }
+.voice-notes-toggle { background: none; border: 1px solid var(--border-color); color: var(--secondary-text); border-radius: var(--border-radius-sm); padding: 0.35rem 0.75rem; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: var(--transition); }
+.voice-notes-toggle:hover { background: rgba(255,255,255,0.05); }
+.voice-notes-list { list-style: none; padding: 0; margin: 0.5rem 0 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.voice-notes-list li { font-size: 0.82rem; color: var(--secondary-text); background: var(--card-bg, #111); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 0.4rem 0.75rem; }
+.voice-notes-list--full li { padding: 0.5rem 0.9rem; font-size: 0.85rem; }
+.note-time { font-size: 0.7rem; color: var(--muted-text); margin-right: 0.5rem; font-variant-numeric: tabular-nums; }
+.note-point { font-size: 0.7rem; color: #ec4899; margin-right: 0.5rem; font-weight: 600; }
+.voice-summary-box { background: var(--card-bg, #111); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 1.25rem; font-size: 0.88rem; color: var(--secondary-text); line-height: 1.65; }
+
 .text-muted { color: var(--muted-text); }
 
 /* === Coach Page === */
@@ -943,10 +978,14 @@ a:hover { color: var(--accent-hover); }
 /* === Responsive === */
 @media (max-width: 768px) {
   .main-content { padding: 1rem; }
-  .navbar { padding: 0.5rem 1rem; gap: 0.5rem; flex-wrap: wrap; }
-  .navbar-links { gap: 0.25rem; }
-  .nav-link { padding: 0.4rem 0.6rem; font-size: 0.7rem; }
-  .nav-link svg { width: 14px; height: 14px; }
+  .navbar { padding: 0.5rem 1rem; gap: 0.5rem; flex-wrap: nowrap; }
+  .navbar-links { gap: 0.15rem; overflow-x: auto; flex-shrink: 1; min-width: 0; }
+  .nav-link { padding: 0.35rem 0.5rem; font-size: 0.65rem; white-space: nowrap; }
+  .nav-link svg { width: 13px; height: 13px; }
+  /* Hide external marketing links on mobile — not useful in-app */
+  .navbar-user a.btn { display: none; }
+  /* Hide username text to keep navbar compact */
+  .navbar-username { display: none; }
   .form-grid, .form-row { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: 1fr 1fr; }
   .wizard-step-label { font-size: 0.65rem; }
@@ -966,13 +1005,36 @@ a:hover { color: var(--accent-hover); }
   .crush-prompt-btn { font-size: 0.8rem; padding: 0.6rem 1rem; }
   .analysis-layout { grid-template-columns: 1fr; }
   .coach-goals-grid { grid-template-columns: 1fr; }
+  .track-page { width: 100%; }
   h1 { font-size: 1.5rem; }
   h2 { font-size: 1.25rem; }
 }
 
 @media (max-width: 480px) {
-  .main-content { padding: 0.75rem 0.5rem; }
-  .navbar-links { display: none; }
+  .main-content { padding: 0.75rem 0.5rem; padding-bottom: 5rem; }
+  /* Move nav links to a fixed bottom tab bar on small phones */
+  .navbar-links {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: var(--secondary-bg);
+    border-top: 1px solid var(--border-color);
+    padding: 0.3rem 0.25rem;
+    gap: 0;
+    justify-content: space-around;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-link { padding: 0.4rem 0.5rem; font-size: 0.6rem; flex-shrink: 0; }
+  /* Hide tooltips in bottom tab bar — they'd appear behind content */
+  .nav-tooltip { display: none; }
+  /* Compact top navbar — just logo + profile button */
+  .navbar { padding: 0.4rem 0.75rem; gap: 0.5rem; }
+  .navbar-logo { width: 42px; height: 42px; }
+  .navbar-user { gap: 0.5rem; }
 }
 
 /* Tailwind utilities — preflight disabled, Track.jsx only */
