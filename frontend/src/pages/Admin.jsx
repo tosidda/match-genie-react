@@ -122,36 +122,9 @@ export default function Admin() {
           <div className="admin-summary-value">{totals.tokens.toLocaleString()}</div>
           <div className="admin-summary-label">Total Tokens</div>
         </div>
-      </div>
-
-      {/* Equity Player Tracker */}
-      <div className="admin-equity-section">
-        <h2 className="admin-section-title">Equity Player Tracker</h2>
-        <div className="admin-summary">
-          <div className="admin-summary-card admin-equity-card">
-            <div className="admin-summary-value" style={{ color: '#f5c518' }}>{totals.equityPlayers}</div>
-            <div className="admin-summary-label">Equity Players</div>
-          </div>
-          <div className="admin-summary-card admin-equity-card">
-            <div className="admin-summary-value" style={{ color: totals.equityPlayers >= 500 ? '#ef4444' : '#22c55e' }}>
-              {500 - totals.equityPlayers}
-            </div>
-            <div className="admin-summary-label">Spots Remaining</div>
-          </div>
-          <div className="admin-summary-card admin-equity-card">
-            <div className="admin-summary-value">{totals.equityPlayers} / 500</div>
-            <div className="admin-summary-label">of 500 Target</div>
-          </div>
-          <div className="admin-summary-card admin-equity-card">
-            <div className="admin-summary-value" style={{ color: '#f5c518' }}>
-              {((totals.equityPlayers / 500) * 100).toFixed(1)}%
-            </div>
-            <div className="admin-summary-label">Filled</div>
-          </div>
-          <div className="admin-summary-card admin-equity-card">
-            <div className="admin-summary-value" style={{ color: '#a78bfa' }}>0.02%</div>
-            <div className="admin-summary-label">Equity per Spot</div>
-          </div>
+        <div className="admin-summary-card admin-equity-card">
+          <div className="admin-summary-value" style={{ color: '#f5c518' }}>{totals.equityPlayers}</div>
+          <div className="admin-summary-label">Equity Players</div>
         </div>
       </div>
 
