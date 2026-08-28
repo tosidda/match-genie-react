@@ -37,7 +37,103 @@ def get_matches():
 
         worksheet = _get_worksheet(user.google_sheet_url)
         data = worksheet.get_all_records()
+        for i, row in enumerate(data):
+            row["_row_index"] = i + 2  # row 1 is the header
         return jsonify({"matches": data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@matches_bp.route("/<int:row_index>", methods=["PUT"])
+@jwt_required()
+def update_match(row_index):
+    user_id = get_jwt_identity()
+    db = SessionLocal()
+    try:
+        user = _get_user(db, user_id)
+        if not user or not user.google_sheet_url:
+            return jsonify({"error": "Google Sheet not found"}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        worksheet = _get_worksheet(user.google_sheet_url)
+        if row_index < 2 or row_index > len(worksheet.get_all_values()):
+            return jsonify({"error": "Match not found"}), 404
+        headers = worksheet.row_values(1)
+
+        col_map = {h: i + 1 for i, h in enumerate(headers)}
+        field_map = {
+            "match_date": "Match Date",
+            "opponent_name": "Opp. Name",
+            "result": "Result",
+            "match_score": "Match Score",
+            "surface_type": "Surface Type",
+            "match_description": "Match Description",
+            "utr": "UTR",
+            "first_serve_percentage": "First Serve %",
+            "first_serve_percentage_won": "First Serve % Won",
+            "second_serve_percentage": "Second Serve %",
+            "aces": "Aces",
+            "double_faults": "Double Faults",
+            "serve_speed": "Serve Speed",
+            "serve_placement": "Serve Placement",
+            "return_percentage": "Return %",
+            "return_placement": "Return Placement",
+            "winners": "Winners",
+            "unforced_errors": "Unforced Errors",
+            "forced_errors": "Forced Errors",
+            "net_points_won": "Net Points Won",
+            "break_points_won": "Break Points Won",
+            "break_points_saved": "Break Points Saved",
+            "average_rally_length": "Average Rally Length",
+            "mental_game": "Mental Game",
+        }
+
+        updates = []
+        for key, header in field_map.items():
+            if key in data and header in col_map:
+                col = col_map[header]
+                value = data[key]
+                if key == "opponent_name" and isinstance(value, str):
+                    value = value.title()
+                updates.append({
+                    "range": gspread.utils.rowcol_to_a1(row_index, col),
+                    "values": [[value]],
+                })
+
+        if updates:
+            worksheet.batch_update(updates, value_input_option="USER_ENTERED")
+
+        return jsonify({"message": "Match updated successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@matches_bp.route("/<int:row_index>", methods=["DELETE"])
+@jwt_required()
+def delete_match(row_index):
+    user_id = get_jwt_identity()
+    db = SessionLocal()
+    try:
+        user = _get_user(db, user_id)
+        if not user or not user.google_sheet_url:
+            return jsonify({"error": "Google Sheet not found"}), 404
+
+        worksheet = _get_worksheet(user.google_sheet_url)
+        if row_index < 2 or row_index > len(worksheet.get_all_values()):
+            return jsonify({"error": "Match not found"}), 404
+        worksheet.delete_rows(row_index)
+
+        user.match_count = max(0, (user.match_count or 1) - 1)
+        db.commit()
+
+        return jsonify({"message": "Match deleted successfully"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:

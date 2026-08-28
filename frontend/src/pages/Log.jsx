@@ -11,8 +11,7 @@ const PLAYING_STYLES = [
   'One-Handed Backhand', 'Net Player', 'Grinder', 'Wall',
 ]
 const OPPONENT_RANKINGS = ['1-100', '100-300', '300-500', 'Below 500']
-const UPLOAD_STATS_OPTIONS = ['SwingVision', 'TennisTracker']
-const STEP_LABELS = ['Match Basics', 'Opponent', 'Media', 'Stats', 'Review']
+const STEP_LABELS = ['Match Basics', 'Opponent', 'Stats', 'Review']
 
 const INITIAL_DATA = () => ({
   matchDate: new Date().toISOString().split('T')[0],
@@ -24,10 +23,6 @@ const INITIAL_DATA = () => ({
   utrRating: 1.0,
   oppRanking: '1-100',
   oppPlayingStyle: [],
-  uploadedVideo: null,
-  ytUrl: '',
-  uploadStatsOption: 'SwingVision',
-  uploadedFile: null,
   firstServePct: 50,
   firstServePctWon: 50,
   secondServePct: 50,
@@ -549,7 +544,6 @@ export default function Log() {
     formData.append('opponent_ranking', d.oppRanking)
     formData.append('opponent_playing_style', d.oppPlayingStyle.join(', '))
     formData.append('match_description', d.matchDescription)
-    formData.append('youtube_url', d.ytUrl)
     formData.append('utr', d.utrRating || 'UR')
     formData.append('first_serve_percentage', d.firstServePct)
     formData.append('first_serve_percentage_won', d.firstServePctWon)
@@ -568,8 +562,6 @@ export default function Log() {
     formData.append('break_points_won', d.breakPointsWon)
     formData.append('break_points_saved', d.breakPointsSaved)
     formData.append('mental_game', d.mentalGame)
-    if (d.uploadedVideo) formData.append('video', d.uploadedVideo)
-    if (d.uploadedFile) formData.append('stats_file', d.uploadedFile)
 
     try {
       const res = await api.post('/matches', formData, {
@@ -718,49 +710,7 @@ export default function Log() {
     </div>
   )
 
-  // --- Step 3: Media & Import ---
-  const Step3 = () => (
-    <div className="step-container">
-      <div className="step-title">Media & Stats Import</div>
-      <div className="form-row">
-        <div className="form-section" style={{ flex: 1 }}>
-          <h4>Match Video</h4>
-          <div className="form-group">
-            <label>Upload Video</label>
-            <input type="file" accept="video/mp4,video/mov,video/avi"
-              onChange={(e) => update('uploadedVideo', e.target.files[0] || null)} />
-          </div>
-          <div className="form-group">
-            <label>Or paste YouTube Link</label>
-            <textarea rows="3" value={d.ytUrl}
-              onChange={(e) => update('ytUrl', e.target.value)}
-              placeholder="https://youtube.com/..." />
-          </div>
-        </div>
-
-        <div className="form-section" style={{ flex: 1 }}>
-          <h4>Import Stats from App</h4>
-          <div className="form-group">
-            <label>Select App</label>
-            <select value={d.uploadStatsOption}
-              onChange={(e) => update('uploadStatsOption', e.target.value)}>
-              {UPLOAD_STATS_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Upload CSV/XLSX</label>
-            <input type="file" accept=".csv,.xlsx"
-              onChange={(e) => update('uploadedFile', e.target.files[0] || null)} />
-          </div>
-          <div className="alert alert-info">
-            Stats will be auto-extracted and can be adjusted in the next step.
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
-  // --- Step 4: Performance Stats (with sub-wizard) ---
+  // --- Step 3: Performance Stats (with sub-wizard) ---
   const StatsSubTabs = () => {
     const labels = ['Serve & Return Stats', 'Shot Stats']
     return (
@@ -891,7 +841,7 @@ export default function Log() {
     </div>
   )
 
-  const Step4 = () => (
+  const Step3 = () => (
     <div className="step-container">
       <div className="step-title">Performance Statistics</div>
       {StatsSubTabs()}
@@ -903,16 +853,16 @@ export default function Log() {
       <div className="nav-buttons">
         <button type="button" className="btn btn-secondary"
           onClick={() => {
-            if (statsSubstep === 1) setStep(3)
+            if (statsSubstep === 1) setStep(2)
             else setStatsSubstep((s) => s - 1)
           }}>
-          {statsSubstep === 1 ? 'Back to Media' : 'Previous'}
+          {statsSubstep === 1 ? 'Back to Opponent' : 'Previous'}
         </button>
         <span className="text-muted">Step {statsSubstep} of 2</span>
         <button type="button" className="btn btn-primary"
           onClick={() => {
             if (statsSubstep < 2) setStatsSubstep((s) => s + 1)
-            else { setStep(5); setStatsSubstep(1) }
+            else { setStep(4); setStatsSubstep(1) }
           }}>
           {statsSubstep < 2 ? 'Next' : 'Continue to Review'}
         </button>
@@ -920,8 +870,8 @@ export default function Log() {
     </div>
   )
 
-  // --- Step 5: Review & Submit ---
-  const Step5 = () => {
+  // --- Step 4: Review & Submit ---
+  const Step4 = () => {
     const score = `${d.playerSet1}-${d.oppSet1}, ${d.playerSet2}-${d.oppSet2}` +
       (d.playerSet3 > 0 || d.oppSet3 > 0 ? `, ${d.playerSet3}-${d.oppSet3}` : '')
 
@@ -977,10 +927,6 @@ export default function Log() {
           <div className="summary-card">
             <div className="summary-label">Winners / UE</div>
             <div className="summary-value">{d.winners} / {d.unforcedErrors}</div>
-          </div>
-          <div className="summary-card">
-            <div className="summary-label">Video</div>
-            <div className="summary-value">{d.uploadedVideo ? 'Yes' : 'No'}</div>
           </div>
         </div>
       </div>
@@ -1263,11 +1209,10 @@ export default function Log() {
       {step === 2 && Step2()}
       {step === 3 && Step3()}
       {step === 4 && Step4()}
-      {step === 5 && Step5()}
 
-      {/* Navigation (hidden on step 4 which has its own sub-nav) */}
+      {/* Navigation (hidden on step 3 which has its own sub-nav) */}
       {validationError && <div className="alert alert-error">{validationError}</div>}
-      {step !== 4 && (
+      {step !== 3 && (
         <div className="nav-buttons">
           <div>
             {step > 1 && (
@@ -1277,7 +1222,7 @@ export default function Log() {
             )}
           </div>
           <div>
-            {step < 5 ? (
+            {step < 4 ? (
               <button type="button" className="btn btn-primary"
                 onClick={() => {
                   if (step === 1) {
@@ -1290,7 +1235,7 @@ export default function Log() {
                   }
                   setValidationError('')
                   setStep((s) => s + 1)
-                  if (step + 1 === 4) setStatsSubstep(1)
+                  if (step + 1 === 3) setStatsSubstep(1)
                 }}>
                 Next
               </button>

@@ -107,9 +107,11 @@ export default function Track() {
     const sp = server === 1 ? p1Points : p2Points
     const rp = server === 1 ? p2Points : p1Points
 
-    // Break point detection
+    const isMatchTiebreak = currentSet === 2 && !matchFormat.includes('3rd Full Set')
+
+    // Break point detection (match-tiebreak points are not break points)
     let isBreakPoint = false
-    if (rp >= 3) {
+    if (!isMatchTiebreak && rp >= 3) {
       if (sp < 3) isBreakPoint = true
       else if (sp >= 3) {
         if (!hasAds) isBreakPoint = true
@@ -145,6 +147,37 @@ export default function Track() {
     // Check game win
     let newP1 = player === 1 ? p1Points + 1 : p1Points
     let newP2 = player === 2 ? p2Points + 1 : p2Points
+
+    if (isMatchTiebreak) {
+      const newP1G = [...p1Games]
+      const newP2G = [...p2Games]
+      newP1G[currentSet] = newP1
+      newP2G[currentSet] = newP2
+
+      const winner = newP1 >= 10 && newP1 - newP2 >= 2
+        ? 1
+        : newP2 >= 10 && newP2 - newP1 >= 2
+          ? 2
+          : null
+
+      setP1Games(newP1G)
+      setP2Games(newP2G)
+      setFirstServe(true)
+
+      if (winner) {
+        setP1Sets((sets) => sets + (winner === 1 ? 1 : 0))
+        setP2Sets((sets) => sets + (winner === 2 ? 1 : 0))
+        setP1Points(0)
+        setP2Points(0)
+        setPhase('match_complete')
+      } else {
+        setP1Points(newP1)
+        setP2Points(newP2)
+        if ((newP1 + newP2) % 2 === 1) switchServer()
+        setPhase('service')
+      }
+      return
+    }
 
     let gameWon = false, winner = null
     if (hasAds) {
@@ -498,7 +531,9 @@ export default function Track() {
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label>Match Format</label>
+            <label>
+              Match Format <span className="track-format-default">(Default: 2 sets to 6 with ads and 3rd set Super Tiebreaker to 10)</span>
+            </label>
             <div className="chip-group">
               {FORMAT_OPTIONS.map((o) => (
                 <button key={o} type="button"
