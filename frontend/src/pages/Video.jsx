@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import api from '../api/client'
+import { useAuth } from '../context/AuthContext'
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -41,17 +42,18 @@ function VideoAnalysisAccordionHeader({ opponent, date, expanded, onToggle, stat
 }
 
 const ANALYSIS_JOBS_KEY = 'matchgenie-active-video-analyses-v2'
+const ANALYSIS_JOBS_KEY_PREFIX = `${ANALYSIS_JOBS_KEY}:user:`
 const LEGACY_ANALYSIS_JOB_KEY = 'matchgenie-active-video-analysis'
 
-const readStoredAnalyses = () => {
+const readStoredAnalyses = (storageKey) => {
+  if (!storageKey) return []
   try {
-    const storedValue = localStorage.getItem(ANALYSIS_JOBS_KEY)
+    const storedValue = localStorage.getItem(storageKey)
     if (storedValue) {
       const stored = JSON.parse(storedValue)
       if (Array.isArray(stored)) return stored.filter((job) => job?.task_id)
     }
-    const legacy = JSON.parse(localStorage.getItem(LEGACY_ANALYSIS_JOB_KEY) || 'null')
-    return legacy?.task_id ? [legacy] : []
+    return []
   } catch {
     return []
   }
@@ -1965,6 +1967,11 @@ function VideoHowItWorksModal({ onClose }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Video() {
+  const { user } = useAuth()
+  const analysisOwnerKey = user?.id ?? user?.username ?? null
+  const analysisJobsKey = analysisOwnerKey == null
+    ? null
+    : `${ANALYSIS_JOBS_KEY_PREFIX}${encodeURIComponent(String(analysisOwnerKey))}`
   const videoQuery = new URLSearchParams(window.location.search)
   const focusedRow = Number(videoQuery.get('match')) || null
   const shouldOpenAnalysisForm = videoQuery.get('analyze') === '1'
@@ -1976,7 +1983,17 @@ export default function Video() {
   const [showHowItWorks, setShowHowItWorks] = useState(false)
   const [visibleCount, setVisibleCount] = useState(3)
   const [expandedMatch, setExpandedMatch] = useState(null)
-  const [analysisJobs, setAnalysisJobs] = useState(readStoredAnalyses)
+  const [analysisJobs, setAnalysisJobs] = useState(() => readStoredAnalyses(analysisJobsKey))
+  const [analysisJobsOwnerKey, setAnalysisJobsOwnerKey] = useState(analysisJobsKey)
+
+  useEffect(() => {
+    setAnalysisJobs(readStoredAnalyses(analysisJobsKey))
+    setAnalysisJobsOwnerKey(analysisJobsKey)
+    // These older keys were shared by every account in the browser. They have
+    // no trustworthy owner, so never attach their contents to a signed-in user.
+    localStorage.removeItem(ANALYSIS_JOBS_KEY)
+    localStorage.removeItem(LEGACY_ANALYSIS_JOB_KEY)
+  }, [analysisJobsKey])
 
   const loadMatches = () => {
     setLoading(true)
@@ -2023,7 +2040,7 @@ export default function Video() {
       cancelled = true
       window.clearTimeout(restoreTimer)
     }
-  }, [])
+  }, [analysisJobsKey])
 
   useEffect(() => {
     if (!focusedRow || !matches.length) return
@@ -2040,10 +2057,10 @@ export default function Video() {
   }, [focusedRow, shouldOpenAnalysisForm, matches])
 
   useEffect(() => {
-    if (analysisJobs.length) localStorage.setItem(ANALYSIS_JOBS_KEY, JSON.stringify(analysisJobs))
-    else localStorage.removeItem(ANALYSIS_JOBS_KEY)
-    localStorage.removeItem(LEGACY_ANALYSIS_JOB_KEY)
-  }, [analysisJobs])
+    if (!analysisJobsKey || analysisJobsOwnerKey !== analysisJobsKey) return
+    if (analysisJobs.length) localStorage.setItem(analysisJobsKey, JSON.stringify(analysisJobs))
+    else localStorage.removeItem(analysisJobsKey)
+  }, [analysisJobs, analysisJobsKey, analysisJobsOwnerKey])
 
   const beginAnalysis = (task) => {
     const job = {
