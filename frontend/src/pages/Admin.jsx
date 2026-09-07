@@ -10,11 +10,18 @@ export default function Admin() {
   const [users, setUsers] = useState([])
   const [equityUpdating, setEquityUpdating] = useState({})
   const [archiveUpdating, setArchiveUpdating] = useState({})
+  const [limitUpdating, setLimitUpdating] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sortKey, setSortKey] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
   const [search, setSearch] = useState('')
+  const [announcements, setAnnouncements] = useState([])
+  const [announcementTitle, setAnnouncementTitle] = useState('')
+  const [announcementMessage, setAnnouncementMessage] = useState('')
+  const [announcementDuration, setAnnouncementDuration] = useState(24)
+  const [announcementSaving, setAnnouncementSaving] = useState(false)
+  const [announcementError, setAnnouncementError] = useState('')
   const topScrollRef = useRef(null)
   const tableWrapperRef = useRef(null)
 
@@ -42,6 +49,12 @@ export default function Admin() {
       .then((res) => setUsers(res.data.users || []))
       .catch((err) => setError(err.response?.data?.error || 'Failed to load users'))
       .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    api.get('/admin/announcements/all')
+      .then((res) => setAnnouncements(res.data.announcements || []))
+      .catch(() => {})
   }, [])
 
   const handleSort = (key) => {
@@ -75,6 +88,7 @@ export default function Admin() {
     premium: users.filter((u) => u.subscription_tier === 'premium').length,
     coach: users.filter((u) => u.subscription_tier === 'coach').length,
     matches: users.reduce((s, u) => s + (u.match_count || 0), 0),
+    videoAnalyses: users.reduce((s, u) => s + (u.video_analysis_count || 0), 0),
     prompts: users.reduce((s, u) => s + u.prompt_count, 0),
     tokens: users.reduce((s, u) => s + u.token_count, 0),
     equityPlayers: users.filter((u) => u.is_equity_player).length,
@@ -96,6 +110,100 @@ export default function Admin() {
         <p className="admin-subtitle">Logged in as <strong>{user?.username}</strong></p>
       </div>
 
+      <section className="admin-announcements">
+        <h2>Announcements</h2>
+        <p className="admin-subtitle">Post a message on every user’s Home page for a set number of hours.</p>
+        <form
+          className="admin-announcement-form"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setAnnouncementSaving(true)
+            setAnnouncementError('')
+            try {
+              const res = await api.post('/admin/announcements', {
+                title: announcementTitle,
+                message: announcementMessage,
+                duration_hours: Number(announcementDuration),
+              })
+              setAnnouncements((prev) => [res.data.announcement, ...prev])
+              setAnnouncementTitle('')
+              setAnnouncementMessage('')
+              setAnnouncementDuration(24)
+            } catch (err) {
+              setAnnouncementError(err.response?.data?.error || 'Could not publish announcement')
+            } finally {
+              setAnnouncementSaving(false)
+            }
+          }}
+        >
+          <input
+            type="text"
+            maxLength="120"
+            placeholder="Announcement title"
+            value={announcementTitle}
+            onChange={(e) => setAnnouncementTitle(e.target.value)}
+            required
+          />
+          <textarea
+            maxLength="2000"
+            placeholder="Message shown to every user"
+            value={announcementMessage}
+            onChange={(e) => setAnnouncementMessage(e.target.value)}
+            required
+          />
+          <label>
+            Duration (hours)
+            <input
+              type="number"
+              min="0.25"
+              max="8760"
+              step="0.25"
+              value={announcementDuration}
+              onChange={(e) => setAnnouncementDuration(e.target.value)}
+              required
+            />
+          </label>
+          <button className="btn btn-primary" type="submit" disabled={announcementSaving}>
+            {announcementSaving ? 'Publishing…' : 'Publish Announcement'}
+          </button>
+          {announcementError && <div className="admin-announcement-error">{announcementError}</div>}
+        </form>
+
+        {announcements.length > 0 && (
+          <div className="admin-announcement-list">
+            {announcements.map((announcement) => {
+              const active = new Date(announcement.expires_at) > new Date()
+              return (
+                <div className="admin-announcement-row" key={announcement.id}>
+                  <div>
+                    <strong>{announcement.title}</strong>
+                    <span className={active ? 'announcement-active' : 'announcement-expired'}>
+                      {active ? 'Active' : 'Expired'}
+                    </span>
+                    <p>{announcement.message}</p>
+                    <small>Expires {new Date(announcement.expires_at).toLocaleString()}</small>
+                  </div>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await api.delete(`/admin/announcements/${announcement.id}`)
+                        setAnnouncements((prev) => prev.filter((x) => x.id !== announcement.id))
+                      } catch (err) {
+                        setAnnouncementError(err.response?.data?.error || 'Could not delete announcement')
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
       {/* Summary Cards */}
       <div className="admin-summary">
         <div className="admin-summary-card">
@@ -113,6 +221,10 @@ export default function Admin() {
         <div className="admin-summary-card">
           <div className="admin-summary-value">{totals.matches}</div>
           <div className="admin-summary-label">Total Matches</div>
+        </div>
+        <div className="admin-summary-card">
+          <div className="admin-summary-value">{totals.videoAnalyses}</div>
+          <div className="admin-summary-label">Video Analyses</div>
         </div>
         <div className="admin-summary-card">
           <div className="admin-summary-value">{totals.prompts}</div>
@@ -151,6 +263,8 @@ export default function Admin() {
                 { key: 'location', label: 'Location' },
                 { key: 'subscription_tier', label: 'Plan' },
                 { key: 'match_count', label: 'Matches' },
+                { key: 'video_analysis_count', label: 'Videos Analyzed' },
+                { key: 'video_analysis_limit', label: 'Video Limit' },
                 { key: 'voice_count', label: 'Voice Logs' },
                 { key: 'prompt_count', label: 'AI Prompts' },
                 { key: 'token_count', label: 'Tokens' },
@@ -176,6 +290,55 @@ export default function Admin() {
                   </span>
                 </td>
                 <td className="admin-td admin-td-num">{u.match_count ?? '—'}</td>
+                <td className="admin-td admin-td-num">{u.video_analysis_count ?? 0}</td>
+                <td className="admin-td admin-td-num">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={u.video_analysis_limit ?? 3}
+                    disabled={limitUpdating[u.id]}
+                    aria-label={`Video analysis limit for ${u.name || u.username}`}
+                    style={{ width: '5rem' }}
+                    onFocus={(e) => {
+                      e.target.dataset.savedValue = String(u.video_analysis_limit ?? 3)
+                    }}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setUsers((prev) => prev.map((x) => x.id === u.id
+                        ? { ...x, video_analysis_limit: value }
+                        : x))
+                    }}
+                    onBlur={async (e) => {
+                      const value = Number.parseInt(e.target.value, 10)
+                      if (!Number.isInteger(value) || value < 0) {
+                        const savedValue = Number.parseInt(e.target.dataset.savedValue, 10)
+                        setUsers((prev) => prev.map((x) => x.id === u.id
+                          ? { ...x, video_analysis_limit: Number.isInteger(savedValue) ? savedValue : 3 }
+                          : x))
+                        return
+                      }
+                      setLimitUpdating((prev) => ({ ...prev, [u.id]: true }))
+                      try {
+                        const res = await api.put(`/admin/users/${u.id}/video-analysis-limit`, {
+                          video_analysis_limit: value,
+                        })
+                        setUsers((prev) => prev.map((x) => x.id === u.id
+                          ? { ...x, video_analysis_limit: res.data.video_analysis_limit }
+                          : x))
+                      } catch (err) {
+                        console.error('Video analysis limit update failed:', err.response?.data || err)
+                        const latest = await api.get('/admin/users')
+                        setUsers(latest.data.users || [])
+                      } finally {
+                        setLimitUpdating((prev) => ({ ...prev, [u.id]: false }))
+                      }
+                    }}
+                  />
+                  <small style={{ display: 'block', marginTop: '0.2rem', color: 'var(--muted-text)' }}>
+                    {u.video_analysis_limit_used ?? 0} used
+                  </small>
+                </td>
                 <td className="admin-td admin-td-num">{u.voice_count}</td>
                 <td className="admin-td admin-td-num">{u.prompt_count}</td>
                 <td className="admin-td admin-td-num">{u.token_count.toLocaleString()}</td>

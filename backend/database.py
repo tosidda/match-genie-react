@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 _data_dir = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "match-genie"))
 os.makedirs(_data_dir, exist_ok=True)
 _db_path = os.path.join(_data_dir, "users.db")
+DB_PATH = _db_path
 DATABASE_URL = f"sqlite:///{_db_path}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -35,6 +36,10 @@ class User(Base):
     profile_pic = Column(String, nullable=True)
     token_count = Column(Integer, default=0)
     match_count = Column(Integer, default=0)
+    video_analysis_count = Column(Integer, default=0)
+    video_analysis_limit = Column(Integer, default=3)
+    video_analysis_limit_used = Column(Integer, default=0)
+    video_analysis_history_synced = Column(Integer, default=1)
     is_equity_player = Column(Integer, default=0)
     email = Column(String, nullable=True)
     subscription_tier = Column(String, default='free')
@@ -72,6 +77,19 @@ class SharedMatchFeedback(Base):
     sharer = relationship("User", foreign_keys=[sharer_id])
     sharee = relationship("User", foreign_keys=[sharee_id])
 
+class ShotCorrection(Base):
+    __tablename__ = 'shot_corrections'
+    id           = Column(Integer, primary_key=True)
+    user_id      = Column(Integer, ForeignKey('users.id'), nullable=False)
+    task_id      = Column(String, nullable=False)   # analysis task/manifest id
+    rally_number = Column(Integer, nullable=False)
+    frame        = Column(Integer, nullable=False)
+    player       = Column(Integer, nullable=False)  # 0=P1, 1=P2
+    detected     = Column(String, nullable=False)   # original label from classifier
+    corrected    = Column(String, nullable=True)    # null = marked correct, else corrected label
+    keypoints_json = Column(Text, nullable=True)    # 17x3 COCO pose at the reviewed frame
+    created_at   = Column(String, nullable=True)
+
 class TrackingCode(Base):
     __tablename__ = 'tracking_codes'
     id = Column(Integer, primary_key=True)
@@ -79,6 +97,15 @@ class TrackingCode(Base):
     player_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     expires_at = Column(String, nullable=False)
     player = relationship("User", foreign_keys=[player_id])
+
+class Announcement(Base):
+    __tablename__ = 'announcements'
+    id = Column(Integer, primary_key=True)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    created_at = Column(String, nullable=False)
+    expires_at = Column(String, nullable=False)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
 
 # Create tables
 Base.metadata.create_all(engine)
@@ -109,6 +136,14 @@ if 'subscription_tier' not in columns:
     _add_column("ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free'")
 if 'match_count' not in columns:
     _add_column("ALTER TABLE users ADD COLUMN match_count INTEGER DEFAULT 0")
+if 'video_analysis_count' not in columns:
+    _add_column("ALTER TABLE users ADD COLUMN video_analysis_count INTEGER DEFAULT 0")
+if 'video_analysis_limit' not in columns:
+    _add_column("ALTER TABLE users ADD COLUMN video_analysis_limit INTEGER DEFAULT 3")
+if 'video_analysis_limit_used' not in columns:
+    _add_column("ALTER TABLE users ADD COLUMN video_analysis_limit_used INTEGER DEFAULT 0")
+if 'video_analysis_history_synced' not in columns:
+    _add_column("ALTER TABLE users ADD COLUMN video_analysis_history_synced INTEGER DEFAULT 0")
 if 'is_equity_player' not in columns:
     _add_column("ALTER TABLE users ADD COLUMN is_equity_player INTEGER DEFAULT 0")
 for col in ['stripe_customer_id', 'stripe_subscription_id']:
@@ -119,6 +154,12 @@ for col in ['first_name', 'last_name', 'location', 'utr', 'profile_pic', 'email'
         _add_column(f"ALTER TABLE users ADD COLUMN {col} TEXT")
 if 'is_archived' not in columns:
     _add_column("ALTER TABLE users ADD COLUMN is_archived INTEGER DEFAULT 0")
+
+shot_correction_columns = [
+    c['name'] for c in inspect(engine).get_columns('shot_corrections')
+]
+if 'keypoints_json' not in shot_correction_columns:
+    _add_column("ALTER TABLE shot_corrections ADD COLUMN keypoints_json TEXT")
 
 ss_columns = [c['name'] for c in inspector.get_columns('shared_stats')]
 for col_name in ['goal_comments', 'match_comments', 'general_comment']:
@@ -131,3 +172,5 @@ if 'shared_match_feedback' not in inspector.get_table_names():
     SharedMatchFeedback.__table__.create(engine)
 if 'tracking_codes' not in inspector.get_table_names():
     TrackingCode.__table__.create(engine)
+if 'announcements' not in inspector.get_table_names():
+    Announcement.__table__.create(engine)

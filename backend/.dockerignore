@@ -1,0 +1,12 @@
+# Local runtime state must never be copied into the application image.
+venv/
+data/
+uploads/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/
+.streamlit/
+*.db
+.DS_Store

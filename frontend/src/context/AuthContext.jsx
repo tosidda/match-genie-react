@@ -3,6 +3,12 @@ import api from '../api/client'
 
 const AuthContext = createContext(null)
 
+const clearAnnouncementDismissals = () => {
+  Object.keys(sessionStorage)
+    .filter((key) => key.startsWith('dismissed_announcement_'))
+    .forEach((key) => sessionStorage.removeItem(key))
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -31,6 +37,7 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const res = await api.post('/auth/login', { username, password })
+    clearAnnouncementDismissals()
     localStorage.setItem('token', res.data.token)
     localStorage.setItem('user', JSON.stringify(res.data.user))
     setUser(res.data.user)
@@ -39,6 +46,7 @@ export function AuthProvider({ children }) {
 
   const signup = async (username, password) => {
     const res = await api.post('/auth/signup', { username, password })
+    clearAnnouncementDismissals()
     localStorage.setItem('token', res.data.token)
     localStorage.setItem('user', JSON.stringify(res.data.user))
     setUser(res.data.user)
@@ -47,6 +55,7 @@ export function AuthProvider({ children }) {
 
   const googleLogin = async (credential) => {
     const res = await api.post('/auth/google', { credential })
+    clearAnnouncementDismissals()
     localStorage.setItem('token', res.data.token)
     localStorage.setItem('user', JSON.stringify(res.data.user))
     setUser(res.data.user)
@@ -60,6 +69,7 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
+    clearAnnouncementDismissals()
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setUser(null)

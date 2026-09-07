@@ -84,6 +84,7 @@ export default function Home() {
   const [videoCount, setVideoCount] = useState(0)
   const [promptCount, setPromptCount] = useState(0)
   const [voiceCount, setVoiceCount] = useState(0)
+  const [announcements, setAnnouncements] = useState([])
 
   const raw = user?.first_name || user?.username || 'Player'
   const displayName = raw.charAt(0).toUpperCase() + raw.slice(1)
@@ -99,10 +100,58 @@ export default function Home() {
       setPromptCount(res.data.prompt_count || 0)
       setVoiceCount(res.data.voice_count || 0)
     }).catch(() => {})
+
+    api.get('/admin/announcements').then((res) => {
+      const items = res.data.announcements || []
+      setAnnouncements(items.filter((item) => (
+        sessionStorage.getItem(`dismissed_announcement_${user?.id}_${item.id}`) !== 'true'
+      )))
+    }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (announcements.length === 0) return undefined
+    const now = Date.now()
+    const nextExpiry = Math.min(...announcements.map((item) => new Date(item.expires_at).getTime()))
+    if (nextExpiry <= now) {
+      setAnnouncements((prev) => prev.filter((item) => new Date(item.expires_at).getTime() > now))
+      return undefined
+    }
+    const timer = window.setTimeout(() => {
+      const currentTime = Date.now()
+      setAnnouncements((prev) => prev.filter((item) => new Date(item.expires_at).getTime() > currentTime))
+    }, Math.min(nextExpiry - now + 100, 2147483647))
+    return () => window.clearTimeout(timer)
+  }, [announcements])
 
   return (
     <div className="home-page">
+      {announcements.length > 0 && (
+        <section className="home-announcements" aria-label="Announcements">
+          {announcements.map((announcement) => (
+            <article className="home-announcement" key={announcement.id}>
+              <button
+                className="home-announcement-dismiss"
+                type="button"
+                aria-label={`Dismiss ${announcement.title}`}
+                title="Dismiss announcement"
+                onClick={() => {
+                  sessionStorage.setItem(
+                    `dismissed_announcement_${user?.id}_${announcement.id}`,
+                    'true',
+                  )
+                  setAnnouncements((prev) => prev.filter((item) => item.id !== announcement.id))
+                }}
+              >
+                ×
+              </button>
+              <h2>{announcement.title}</h2>
+              <p>{announcement.message}</p>
+            </article>
+          ))}
+        </section>
+      )}
+
       {/* Hero */}
       <div className="home-hero">
         <h1 className="home-greeting">Hi, {displayName}!</h1>
