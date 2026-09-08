@@ -132,6 +132,10 @@ def _parse_end_time(value):
     return _parse_video_time(value, "End time")
 
 
+class YouTubeAuthenticationRequired(RuntimeError):
+    """The cookie-free web-server import was rejected by YouTube."""
+
+
 def _download_youtube_locally(youtube_url, upload_dir):
     """Acquire an authorized YouTube source before handing it to AWS Batch.
 
@@ -275,7 +279,7 @@ def _download_youtube_locally(youtube_url, upload_dir):
     cleanup_partial_download()
     diagnostic = " | ".join(failures)
     if "Sign in to confirm" in diagnostic or "not a bot" in diagnostic:
-        raise RuntimeError(
+        raise YouTubeAuthenticationRequired(
             "YouTube requires authentication for this video. Upload the original "
             "video file, or configure the private YouTube cookie secret."
         )
@@ -552,8 +556,16 @@ def start_analysis():
                     os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "..", "data")),
                     "video_uploads",
                 )
-                tmp_path = _download_youtube_locally(youtube_url, upload_dir)
-                imported_filename = os.path.basename(tmp_path)
+                try:
+                    tmp_path = _download_youtube_locally(youtube_url, upload_dir)
+                    imported_filename = os.path.basename(tmp_path)
+                except YouTubeAuthenticationRequired:
+                    # The web server intentionally imports public videos first
+                    # because residential egress is usually more reliable. If
+                    # YouTube requires a signed-in session, preserve the URL so
+                    # the AWS worker can retry with its private cookie secret.
+                    tmp_path = None
+                    imported_filename = None
 
             task_args = {
                 "video_path": tmp_path,
