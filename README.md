@@ -2,86 +2,86 @@
 
 MatchGenie is a full-stack tennis analytics platform that helps players review match footage, track performance, and collaborate with coaches.
 
-The project has two connected parts: a web application for match logging, statistics, and coaching, and a computer vision pipeline that turns match footage into annotated clips and structured analysis.
+The project combines a web application for match logging, statistics, and coaching with a computer vision pipeline that transforms tennis footage into annotated rally clips and structured analysis.
 
 ## 1. Non-Computer Vision — Web Application and Coaching
 
-The web application connects video analysis with the broader player experience: recording matches, reviewing progress, receiving coaching feedback, and managing an account.
+### Features
 
-### Main features
+- **Match logging:** Record matches through forms and voice-assisted input.
+- **Performance tracking:** Explore match history and interactive statistical dashboards.
+- **Video review:** Upload footage, follow analysis progress, review clips, and correct shot labels.
+- **AI assistance:** Discuss performance using player and match data.
+- **Coach collaboration:** Share matches, exchange feedback, and manage goals and training plans.
+- **Account management:** Manage authentication, profiles, and subscriptions.
 
-- **Match logging:** Record match information through forms or voice-assisted workflows.
-- **Performance tracking:** Review match history and statistical summaries through interactive dashboards.
-- **Video review:** Submit footage, follow analysis progress, watch annotated clips, and correct shot labels.
-- **AI assistance:** Discuss match data and performance with a conversational assistant.
-- **Coach collaboration:** Share statistics and matches, exchange feedback, and manage training plans and goals.
-- **Account management:** Support authentication, player profiles, subscriptions, and administrative workflows.
+### Frontend files
 
-### Application structure
+Paths are relative to the web application codebase. Axios requests use the shared `frontend/src/api/client.js` client.
 
-The frontend uses React to manage navigation, forms, dashboards, and video interactions. A Flask backend exposes authenticated APIs, coordinates analysis requests, and integrates with storage and external services.
+| File | Purpose | Libraries and tools |
+| --- | --- | --- |
+| `frontend/src/pages/Video.jsx` | Manages video submission, progress updates, playback, and shot-label corrections. | React hooks for state and lifecycle management; Axios through the shared API client; HTML video elements for playback. |
+| `frontend/src/pages/Matches.jsx` | Displays match history and individual match records. | React; React Router for navigation; Axios through the shared API client. |
+| `frontend/src/pages/Stats.jsx` | Renders performance summaries and interactive charts. | React; Plotly through `react-plotly.js` for charts; React Router; Axios through the shared API client. |
+| `frontend/src/pages/Track.jsx` | Provides the match-tracking interface. | React hooks; React Router; Axios through the shared API client. |
+| `frontend/src/pages/TrackVoice.jsx` | Supports voice-assisted match tracking. | React hooks; browser Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`); Axios through the shared API client. |
+| `frontend/src/pages/Coach.jsx` | Provides coach-facing navigation and data views. | React; React Router; Axios through the shared API client. |
 
-The paths below belong to the web application codebase; the computer vision paths in Part 2 belong to the analysis codebase.
+### Backend files
 
-| File or directory | Responsibility |
-| --- | --- |
-| `frontend/src/pages/Video.jsx` | Handles video submission, analysis progress, playback, and shot-label review. |
-| `frontend/src/pages/Matches.jsx` | Presents match history and individual match records. |
-| `frontend/src/pages/Stats.jsx` | Displays performance summaries and statistical visualizations. |
-| `frontend/src/pages/Track.jsx` and `TrackVoice.jsx` | Provide match-tracking interfaces, including voice-assisted input. |
-| `frontend/src/pages/Coach.jsx` | Provides the coach-facing interface. |
-| `backend/app.py` | Initializes Flask, authentication, cross-origin settings, and API routes. |
-| `backend/routes/auth.py` | Handles signup, login, and account-related requests. |
-| `backend/routes/matches.py` | Provides match-record operations. |
-| `backend/routes/video.py` | Connects the application to video-analysis submission and result workflows. |
-| `backend/routes/stats.py` | Serves statistics, sharing, goals, training plans, and coaching feedback. |
-| `backend/routes/voice_log.py` | Processes transcription, conversational input, and structured extraction for voice logging. |
-| `backend/routes/crush.py` | Supports AI conversations using player and shared match data. |
-| `backend/routes/billing.py` | Integrates Stripe checkout and subscription webhooks. |
+| File | Purpose | Libraries and tools |
+| --- | --- | --- |
+| `backend/app.py` | Initializes the API server, database tables, authentication, and route registration. | Flask; Flask-CORS; Flask-JWT-Extended; SQLAlchemy through the database module. |
+| `backend/routes/auth.py` | Handles signup, login, and account-related requests. | Flask; Flask-JWT-Extended; bcrypt for password hashing; Google Auth and Google API Python Client for Google integrations; SQLAlchemy-backed models. |
+| `backend/routes/matches.py` | Reads and manages match records. | Flask; Flask-JWT-Extended; gspread for Google Sheets; pandas for tabular data; SQLAlchemy-backed models. |
+| `backend/routes/video.py` | Coordinates video submission, job status, results, and shot corrections. | Flask; Flask-JWT-Extended; Celery result APIs; Google Cloud Storage client; gspread; internal AWS Batch integration. |
+| `backend/routes/stats.py` | Calculates statistics and manages sharing, goals, training plans, and feedback. | Flask; Flask-JWT-Extended; pandas and NumPy for data processing; gspread for Google Sheets; SQLAlchemy-backed models. |
+| `backend/routes/voice_log.py` | Processes voice transcription, conversational logging, and structured extraction. | Flask and streaming responses; Flask-JWT-Extended; OpenAI Python SDK; Python JSON utilities. |
+| `backend/routes/crush.py` | Generates AI responses informed by player and shared match data. | OpenAI Python SDK; Flask streaming responses; pandas; NumPy; gspread; Flask-JWT-Extended. |
+| `backend/routes/billing.py` | Creates checkout sessions and processes subscription webhooks. | Stripe Python SDK; Flask; Flask-JWT-Extended; SQLAlchemy-backed models. |
 
-### Data and infrastructure
+### Application infrastructure
 
-The backend uses SQLAlchemy for application records and Google Sheets integrations for match-data workflows. JWT authentication protects API routes, while Stripe supports subscription management.
+React and Vite power the frontend, with Tailwind CSS for styling. Flask provides authenticated backend APIs. SQLAlchemy manages application records, while Google Sheets integrations support match-data workflows.
 
-Docker separates application services, and the cloud analysis pipeline performs computationally intensive video processing without tying it to a browser session.
-
-**Technologies:** React, Vite, Tailwind CSS, Plotly, Flask, SQLAlchemy, JWT, Google Sheets API, OpenAI API, Stripe, Docker.
+Docker packages application services. Computationally intensive video analysis runs separately from the web server.
 
 ## 2. Computer Vision — Video Analysis
 
-The video analysis pipeline combines player pose estimation, ball detection, court geometry, and temporal logic to identify tennis strokes and organize footage into rally clips.
-
 ### How it works
 
-1. **Filter inactive footage:** Identify periods of ball activity, remove inactive sections, and preserve the relationship between original and edited timestamps.
-2. **Track players and the ball:** Use YOLO pose estimation and object detection to extract player keypoints and ball positions.
-3. **Identify strokes:** Combine wrist and arm movement, handedness, ball proximity, and motion history to generate serve, forehand, and backhand events.
-4. **Interpret court geometry:** Map image coordinates onto a tennis court to support bounce classification and rally-ending decisions.
-5. **Segment rallies:** Combine serve timestamps, shot events, ball trajectories, and terminal-event evidence to determine rally boundaries.
-6. **Generate results:** Produce annotated rally clips, event files, and player-level statistics.
+1. **Filter footage:** Detect ball activity and remove inactive sections while preserving timestamp mappings.
+2. **Track movement:** Extract player keypoints and ball positions using YOLO models.
+3. **Identify strokes:** Combine pose, handedness, ball proximity, and motion history to generate shot candidates.
+4. **Interpret court geometry:** Map image coordinates to court coordinates for bounce and boundary reasoning.
+5. **Segment rallies:** Combine serves, shot events, and ball trajectories to determine rally boundaries.
+6. **Produce results:** Export annotated clips, shot events, and player statistics.
 
-An optional Astra integration interprets proposed strokes using surrounding video frames and pose information. It can confirm, relabel, or reject a candidate; it does not independently inspect every moment of the match.
+An optional Astra integration evaluates proposed strokes using surrounding frames and pose evidence. It can confirm, relabel, or reject candidates; it does not independently inspect every moment of the video.
 
-### Key files
+### Pipeline files
 
-| File | Responsibility |
-| --- | --- |
-| `aws/worker.py` | Coordinates the AWS Batch pipeline, restores checkpoints, and publishes videos, progress, and results to S3. |
-| `scripts/rally_trimmer.py` | Filters footage using ball activity and maintains an original-to-edited timeline mapping. |
-| `scripts/pose_shot_classifier.py` | Tracks player identity, processes pose and ball signals, detects stroke events, and renders annotations. |
-| `scripts/court_homography.py` | Converts image positions into court coordinates for spatial reasoning. |
-| `scripts/ball_bounce.py` | Estimates bounce events from short ball trajectories. |
-| `scripts/rally_segmenter.py` | Determines rally boundaries using serves, ball movement, and rally-ending evidence. |
-| `scripts/astra_stroke.py` | Sends candidate-centered frames and supporting metadata to Astra for stroke interpretation. |
-| `scripts/astra_handoff.py` | Reuses confirmed events across analysis passes and helps recover rally coverage. |
-| `scripts/astra_decision_cache.py` | Persists exact-request decisions so repeated work can reuse results across passes and restarts. |
-| `scripts/astra_budget.py` | Records token usage and estimated cost, with configurable per-video budget enforcement. |
-| `scripts/diagnostic_retention.py` | Preserves available frame-level diagnostics and decision logs for debugging. |
-| `scripts/shot_stats.py` | Aggregates shot events into player statistics while accounting for overlapping rally clips. |
-| `scripts/winner_clips.py` | Extracts supported winning-shot clips using contact order and rally-ending evidence. |
+Paths are relative to the video-analysis codebase.
 
-### Cloud execution
+| File | Purpose | Libraries and tools |
+| --- | --- | --- |
+| `aws/worker.py` | Coordinates analysis stages, restores checkpoints, and publishes results. | Boto3 for AWS access; Amazon S3; AWS Batch as the execution environment; Python `subprocess`; FFmpeg/FFprobe for video processing. |
+| `scripts/rally_trimmer.py` | Filters footage using ball activity and preserves original-to-edited timestamp mappings. | Ultralytics YOLO for detection; OpenCV for video access; NumPy for numerical processing; FFmpeg for cutting and joining footage. |
+| `scripts/pose_shot_classifier.py` | Tracks players, detects stroke events, and renders pose and shot annotations. | Ultralytics YOLO for pose and object detection; OpenCV; NumPy; FFmpeg; Python CSV/JSON utilities. |
+| `scripts/court_homography.py` | Maps image positions to tennis-court coordinates. | Ultralytics YOLO for court segmentation; OpenCV for perspective transformations; NumPy for coordinate calculations. |
+| `scripts/ball_bounce.py` | Estimates bounce contacts and checks player strike-zone overlap. | NumPy for trajectory and geometric calculations. |
+| `scripts/rally_segmenter.py` | Determines rally starts and endings from serves, ball movement, and terminal-event evidence. | Ultralytics YOLO; OpenCV; NumPy; FFmpeg; internal court, bounce, pose, and statistics modules. |
+| `scripts/astra_stroke.py` | Builds frame-based requests for Astra stroke interpretation and handles responses. | OpenCV and NumPy for frame preparation; Python `base64` and `json`; `urllib.request` for OpenAI Responses API calls; internal cache and budget modules. |
+| `scripts/astra_handoff.py` | Carries confirmed events between passes and reconciles rally coverage. | Python `csv` and custom event-grouping and interval-processing logic. |
+| `scripts/astra_decision_cache.py` | Reuses identical model requests across passes and restarts. | Python `hashlib` for SHA-256 fingerprints; `json` and `pathlib` for local records; Boto3 and S3 for cloud persistence. |
+| `scripts/astra_budget.py` | Tracks token usage, estimated costs, and optional per-video spending limits. | Python `json`, `math`, `uuid`, and `pathlib`; Boto3 and S3 conditional writes for shared ledger updates. |
+| `scripts/diagnostic_retention.py` | Preserves diagnostic files before temporary working files are removed. | Python `pathlib`; an upload callback supplied by the worker for S3 persistence. |
+| `scripts/shot_stats.py` | Aggregates discrete shot events into player statistics. | Python `csv`, `glob`, and `collections.defaultdict`; custom event aggregation and rally-ownership rules. |
+| `scripts/winner_clips.py` | Selects supported winning shots and extracts their video clips. | Python CSV/JSON utilities; `pathlib`; `subprocess`; FFmpeg for clip extraction. |
 
-Long-running analysis runs separately from the web application through AWS Batch. Amazon S3 stores inputs, intermediate artifacts, and results. Checkpoints preserve completed stages and rallies, while persistent decision caching avoids repeating identical model requests.
+### Cloud execution and persistence
 
-**Technologies:** Python, Ultralytics YOLO, OpenCV, FFmpeg, OpenAI API, AWS Batch, Amazon S3, Docker.
+AWS Batch runs long-running analysis jobs, while Amazon S3 stores source videos, intermediate artifacts, diagnostics, and final results.
+
+Stage checkpoints preserve completed work. Exact-request decision caching reduces duplicate model calls across passes and restarts, while usage tracking records token consumption and estimated cost.
